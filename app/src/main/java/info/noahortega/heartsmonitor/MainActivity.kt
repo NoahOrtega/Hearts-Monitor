@@ -62,6 +62,7 @@ sealed class Screen(val route: String, @StringRes val resourceId: Int, val icon 
 @Preview
 @Composable
 fun EntryPoint() {
+   val vm : HeartsViewModel = viewModel()
    val nav = rememberNavController()
    MainScaffold(nav = nav,
       content = {
@@ -71,22 +72,24 @@ fun EntryPoint() {
                contacts = listOf(),
                modifier = mod.fillMaxSize(),
                onFab = {nav.navigate(Screen.Edit.route)})} //TODO:change to actual contacts screen
-            composable(Screen.Edit.route) { EditContactScreen(onRandom = {}, contact = null,
-               modifier = mod.fillMaxSize(),
-               onSave = {
-                  //TODO: vm
-                  nav.popBackStack()
-               },
-               onCancel = {
-                  //TODO: vm
-                  nav.popBackStack()
-               })}
+            composable(Screen.Edit.route) {
+               EditContactScreen(onRandom = {vm.onRandomPicPress()},
+                  contact = vm.currentEdit.value,
+                  modifier = mod.fillMaxSize(),
+                  onSave = {
+                     //TODO: vm
+                     nav.popBackStack()
+                  },
+                  onCancel = {
+                     //TODO: vm
+                     nav.popBackStack()
+                  })}
             composable(Screen.Nudge.route) { }
             composable(Screen.Random.route) { SuggestionScreen(
-               contact = null,
+               contact = vm.suggestedContact.value,
                modifier = mod.fillMaxSize(),
-               onChat = {},
-               onIgnore = {})}
+               onChat = { vm.contactSuggestionPressed()},
+               onIgnore = {vm.newSuggestionPressed()})}
          }
       })
 }
@@ -208,8 +211,7 @@ fun TestContactsScreen() {
 fun ContactsScreen(contacts : List<Contact>, modifier: Modifier = Modifier, onFab: () -> Unit = {}) {
    Box(modifier = modifier) {
       LazyColumn(contentPadding = PaddingValues(bottom = 20.dp),) {
-         items(items = contacts,
-            key = { it.contactId })
+         items(contacts)
          { contact ->
             ContactItem(imgId = contact.picture,
                name = contact.name,

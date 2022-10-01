@@ -1,29 +1,59 @@
 package info.noahortega.heartsmonitor
 
+
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import java.time.*
 import kotlin.random.Random
 
 
 data class EditScreenUiState(
-   var shouldExist: Boolean = false,
    val contactId: Int? = null,
-   val pictureId: Int = R.drawable.smiles000,
-   val contactName: String = "",
-   val isNudger: Boolean = false,
-   val nudgeDayInterval: Int? = null
+   var editContact: Contact
+)
+
+val defaultProfilePics = listOf(
+   R.drawable.smiles000,
+   R.drawable.smiles001,
+   R.drawable.smiles002,
+   R.drawable.smiles003,
+   R.drawable.smiles004,
+   R.drawable.smiles005,
 )
 
 class HeartsViewModel : ViewModel() {
 
-   val defaultProfilePics = listOf(
-      R.drawable.smiles000,
-      R.drawable.smiles001,
-      R.drawable.smiles002,
-      R.drawable.smiles003,
-      R.drawable.smiles004,
-      R.drawable.smiles005,
+   val blankContact = Contact(
+      contactId = null,
+      name = "",
+      picture = defaultProfilePics.random(),
+      lastMessageDate = null,
+      isNudger = false,
+      nudgeDayInterval = 0,
+      nextNudgeDate = null
    )
+
+   val currentEdit = mutableStateOf(blankContact)
+   fun onRandomPicPress() {
+      currentEdit.value.picture =  defaultProfilePics.random()
+   }
+
+   val suggestedContact = mutableStateOf(newRandomContact() as Contact?)
+   fun newSuggestionPressed() {
+      suggestedContact.value = newRandomContact()
+   }
+   fun contactSuggestionPressed() {
+      suggestedContact.value = newRandomContact()
+   }
+   private fun newRandomContact() : Contact?{
+      return dummyContacts(4).random()
+   }
+
+   private fun contactContacted(contactId : Long) {
+      //TODO: find contact, set contact date to now
+   }
+
+
 
    fun dummyContact() : Contact {
       return Contact(
@@ -42,15 +72,15 @@ class HeartsViewModel : ViewModel() {
       for(i in 1..numContacts) {
          contacts.add(
             Contact(
-               contactId = (-i).toLong(),
-               name = "Test Contact $i",
+               contactId = -i.toLong(),
+               name = "test contact $i",
                picture = defaultProfilePics.random(),
-               lastMessageDate = randomTimeBetween(
+               lastMessageDate =randomTimeBetween(
                   LocalDateTime.of(2022, 8, 15, 0, 0, 0)
                   ,LocalDateTime.now()),
-               isNudger = true,
+               isNudger = false,
                nudgeDayInterval = 0,
-               nextNudgeDate = randomTimeBetween(
+               nextNudgeDate =randomTimeBetween(
                   LocalDateTime.now(),
                   LocalDateTime.of(2023, 1, 1, 0, 0, 0))
             )
@@ -66,3 +96,6 @@ class HeartsViewModel : ViewModel() {
       return LocalDateTime.ofEpochSecond(random, 0, ZoneOffset.UTC)
    }
 }
+
+
+
