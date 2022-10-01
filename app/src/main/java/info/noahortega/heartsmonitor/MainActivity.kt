@@ -3,26 +3,39 @@ package info.noahortega.heartsmonitor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.StringRes
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.BottomNavigation
+import androidx.compose.material.BottomNavigationItem
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import info.noahortega.heartsmonitor.ui.theme.HeartsMonitorTheme
 
 class MainActivity : ComponentActivity() {
@@ -31,30 +44,110 @@ class MainActivity : ComponentActivity() {
       setContent {
          HeartsMonitorTheme {
             Surface(Modifier.fillMaxSize()) {
-//               val vm: HeartsViewModel = viewModel()
-//               ContactsScreen(contacts = vm.dummyContacts(20))
-//               SuggTest()
-               TestContactEdit()
+               EntryPoint()
             }
          }
       }
    }
 }
 
-@Preview()
+
+sealed class Screen(val route: String, @StringRes val resourceId: Int, val icon : ImageVector) {
+   object Contact : Screen("contact", R.string.screen_contact, Icons.Filled.Favorite)
+   object Edit : Screen("edit", R.string.screen_edit, Icons.Filled.Favorite)
+   object Nudge : Screen("nudge", R.string.screen_nudge, Icons.Filled.Warning)
+   object Random : Screen("random", R.string.screen_random, Icons.Filled.Refresh)
+}
+
+@Preview
 @Composable
-fun TestContactEdit() {
-   EditContactScreen(contact = null)
+fun EntryPoint() {
+   val nav = rememberNavController()
+   MainScaffold(nav = nav,
+      content = {
+         val mod = Modifier.padding(it)
+         NavHost(navController = nav, startDestination = Screen.Contact.route) {
+            composable(Screen.Contact.route) { ContactsScreen(
+               contacts = listOf(),
+               modifier = mod.fillMaxSize(),
+               onFab = {nav.navigate(Screen.Edit.route)})} //TODO:change to actual contacts screen
+            composable(Screen.Edit.route) { EditContactScreen(onRandom = {}, contact = null,
+               modifier = mod.fillMaxSize(),
+               onSave = {
+                  //TODO: vm
+                  nav.popBackStack()
+               },
+               onCancel = {
+                  //TODO: vm
+                  nav.popBackStack()
+               })}
+            composable(Screen.Nudge.route) { }
+            composable(Screen.Random.route) { SuggestionScreen(
+               contact = null,
+               modifier = mod.fillMaxSize(),
+               onChat = {},
+               onIgnore = {})}
+         }
+      })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditContactScreen(onRandom: () -> Unit = {}, contact: Contact?) {
+fun MainScaffold(mod: Modifier = Modifier,
+                 nav: NavHostController,
+                 content: @Composable (PaddingValues) -> Unit) {
+   Scaffold(
+      modifier = mod,
+      bottomBar = { BottomBar(nav = nav)},
+   ) {  contentPadding -> content(contentPadding) }
+}
+
+
+val screenList = listOf(
+   Screen.Contact,
+   Screen.Random,
+)
+
+@Composable
+fun BottomBar(mod: Modifier = Modifier, nav : NavHostController) {
+   val navBackStackEntry by nav.currentBackStackEntryAsState()
+   val currentDestination = navBackStackEntry?.destination
+
+   BottomNavigation() {
+      screenList.forEach { screen ->
+         val onThisScreen = currentDestination?.hierarchy?.any { it.route == screen.route }
+         BottomNavigationItem(
+            icon = { Icon(screen.icon, null) },
+            label = { Text(stringResource(id = screen.resourceId)) },
+            selected = onThisScreen == true,
+            onClick = {
+               nav.navigate(screen.route) {
+                  //save entire back stack and pop it until we return to this route
+                  popUpTo(nav.graph.findStartDestination().id) {
+                     saveState = true
+                  }
+                  //prevent copies on top of the backstack
+                  launchSingleTop = true
+                  // Restore state when selecting a previously selected item
+                  restoreState = true
+
+               }
+            }
+         )
+      }
+   }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditContactScreen(modifier: Modifier = Modifier, onRandom: () -> Unit,
+                      onSave: () -> Unit, onCancel: () -> Unit, contact: Contact?) {
    val imageId = R.drawable.smiles001 //TODO: from VM
 
-   Column(modifier = Modifier
-         .padding(40.dp)
-         .verticalScroll(rememberScrollState()),
+   Column(modifier = modifier
+      .padding(40.dp)
+      .verticalScroll(rememberScrollState()),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center,
    ) {
@@ -85,14 +178,16 @@ fun EditContactScreen(onRandom: () -> Unit = {}, contact: Contact?) {
             enabled = true
          )
          Row(horizontalArrangement = Arrangement.SpaceEvenly,
-         modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)) {
+         modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 24.dp)) {
             val buttonModifier = Modifier.width(102.dp)
             Button(modifier = buttonModifier,
-               onClick = {  }) {
-               Text(text = "Save  ", )
+               onClick = { onSave() }) {
+               Text(text = "Save", )
             }
             OutlinedButton(modifier = buttonModifier,
-               onClick = {  }) {
+               onClick = { onCancel() }) {
                Text(text = "Cancel")
             }
          }
@@ -105,13 +200,13 @@ fun EditContactScreen(onRandom: () -> Unit = {}, contact: Contact?) {
 @Composable
 fun TestContactsScreen() {
    val vm: HeartsViewModel = viewModel()
-   ContactsScreen(contacts = vm.dummyContacts(3))
+   ContactsScreen(contacts = vm.dummyContacts(4))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ContactsScreen(contacts : List<Contact>, onFab: () -> Unit = {}) {
-   Box {
+fun ContactsScreen(contacts : List<Contact>, modifier: Modifier = Modifier, onFab: () -> Unit = {}) {
+   Box(modifier = modifier) {
       LazyColumn(contentPadding = PaddingValues(bottom = 20.dp),) {
          items(items = contacts,
             key = { it.contactId })
@@ -172,11 +267,11 @@ fun SuggTest() {
    val vm : HeartsViewModel = viewModel()
    val contact = vm.dummyContact()
    Surface() {
-      SuggestionScreen(name = contact.name, imgId = contact.picture)
+      SuggestionScreen(contact = contact)
    }
 }
 @Composable
-fun SuggestionScreen(name: String, imgId : Int, modifier: Modifier = Modifier, 
+fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
                      onChat: () -> Unit = {}, onIgnore: () -> Unit = {}) {
    val configuration = LocalConfiguration.current
    val screenHeight = configuration.screenHeightDp.dp
@@ -187,11 +282,21 @@ fun SuggestionScreen(name: String, imgId : Int, modifier: Modifier = Modifier,
       verticalArrangement = Arrangement.SpaceEvenly,
       horizontalAlignment = Alignment.CenterHorizontally) {
 
-      Text(style = MaterialTheme.typography.titleLarge,text = "Why not chat with...")
+      if(contact != null) {
+         Text(style = MaterialTheme.typography.titleLarge,text = "Why not chat with...")
 
-      ContactImage(modifier = Modifier.width(min(screenHeight, screenWidth) / 2), imgId = imgId, name = name)
+         ContactImage(modifier = Modifier.width(min(screenHeight, screenWidth) / 2), imgId = contact.picture, name = contact.name)
 
-      Text(style = MaterialTheme.typography.titleLarge, text = name)
+         Text(style = MaterialTheme.typography.titleLarge, text = contact.name)
+      }
+      else {
+         Text(style = MaterialTheme.typography.titleLarge,text = "Why not chat add a new contact")
+
+         ContactImage(modifier = Modifier.width(min(screenHeight, screenWidth) / 2), imgId = R.drawable.smiles000, name = "Default Contact")
+
+         Text(style = MaterialTheme.typography.titleLarge, text = "")
+      }
+
 
       Row() {
          val buttonModifier = Modifier.padding(horizontal = 5.dp)

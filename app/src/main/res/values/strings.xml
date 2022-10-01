@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Hearts Monitor</string>
+    <string name="screen_random">Suggest</string>
+    <string name="screen_nudge">Nudges</string>
+    <string name="screen_edit">Edit Contact</string>
+    <string name="screen_contact">Contacts</string>
 </resources>

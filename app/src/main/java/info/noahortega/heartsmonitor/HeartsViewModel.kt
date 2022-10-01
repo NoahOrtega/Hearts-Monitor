@@ -4,6 +4,16 @@ import androidx.lifecycle.ViewModel
 import java.time.*
 import kotlin.random.Random
 
+
+data class EditScreenUiState(
+   var shouldExist: Boolean = false,
+   val contactId: Int? = null,
+   val pictureId: Int = R.drawable.smiles000,
+   val contactName: String = "",
+   val isNudger: Boolean = false,
+   val nudgeDayInterval: Int? = null
+)
+
 class HeartsViewModel : ViewModel() {
 
    val defaultProfilePics = listOf(
