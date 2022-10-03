@@ -20,7 +20,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -68,22 +67,30 @@ fun EntryPoint() {
       content = {
          val mod = Modifier.padding(it)
          NavHost(navController = nav, startDestination = Screen.Contact.route) {
-            composable(Screen.Contact.route) { ContactsScreen(
+            composable(Screen.Contact.route) { ContactsScreen (
                contacts = listOf(),
                modifier = mod.fillMaxSize(),
-               onFab = {nav.navigate(Screen.Edit.route)})} //TODO:change to actual contacts screen
+               onFab = {
+                  vm.onFabPressed()
+                  nav.navigate(Screen.Edit.route)
+               })}
             composable(Screen.Edit.route) {
-               EditContactScreen(onRandom = {vm.onRandomPicPress()},
-                  contact = vm.currentEdit.value,
+               EditContactScreen(
+                  name = vm.myEditState.name.value, picture = vm.myEditState.imgId.value,
+                  isNudger = vm.myEditState.isNudger.value, dayInterval = vm.myEditState.nudgeDayInterval.value,
+                  onRandomPressed = {vm.onRandomPicPress()},
                   modifier = mod.fillMaxSize(),
-                  onSave = {
-                     //TODO: vm
+                  onSavePressed = {
+                     //TODO: save in vm + prevent multiple presses
                      nav.popBackStack()
                   },
-                  onCancel = {
-                     //TODO: vm
+                  onCancelPressed = {
                      nav.popBackStack()
-                  })}
+                  },
+                  onNameChange = {name -> vm.myEditState.name.value = name},
+                  onDayIntervalChange = {interval -> vm.tryToChangeInterval(interval)},
+                  onNudgeChange = {doNudge -> vm.myEditState.isNudger.value = doNudge},
+               )}
             composable(Screen.Nudge.route) { }
             composable(Screen.Random.route) { SuggestionScreen(
                contact = vm.suggestedContact.value,
@@ -96,15 +103,14 @@ fun EntryPoint() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScaffold(mod: Modifier = Modifier,
+fun MainScaffold(modifier: Modifier = Modifier,
                  nav: NavHostController,
                  content: @Composable (PaddingValues) -> Unit) {
    Scaffold(
-      modifier = mod,
+      modifier = modifier,
       bottomBar = { BottomBar(nav = nav)},
    ) {  contentPadding -> content(contentPadding) }
 }
-
 
 val screenList = listOf(
    Screen.Contact,
@@ -112,11 +118,11 @@ val screenList = listOf(
 )
 
 @Composable
-fun BottomBar(mod: Modifier = Modifier, nav : NavHostController) {
+fun BottomBar(modifier: Modifier = Modifier, nav : NavHostController) {
    val navBackStackEntry by nav.currentBackStackEntryAsState()
    val currentDestination = navBackStackEntry?.destination
 
-   BottomNavigation() {
+   BottomNavigation(modifier = modifier) {
       screenList.forEach { screen ->
          val onThisScreen = currentDestination?.hierarchy?.any { it.route == screen.route }
          BottomNavigationItem(
@@ -141,13 +147,12 @@ fun BottomBar(mod: Modifier = Modifier, nav : NavHostController) {
    }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditContactScreen(modifier: Modifier = Modifier, onRandom: () -> Unit,
-                      onSave: () -> Unit, onCancel: () -> Unit, contact: Contact?) {
-   val imageId = R.drawable.smiles001 //TODO: from VM
-
+fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval: String?,
+                      onNameChange: (String) -> Unit, onDayIntervalChange: (String) -> Unit, onNudgeChange: (Boolean)-> Unit,
+                      modifier: Modifier = Modifier,
+                      onRandomPressed: () -> Unit, onSavePressed: () -> Unit, onCancelPressed: () -> Unit,) {
    Column(modifier = modifier
       .padding(40.dp)
       .verticalScroll(rememberScrollState()),
@@ -156,29 +161,31 @@ fun EditContactScreen(modifier: Modifier = Modifier, onRandom: () -> Unit,
    ) {
       Column(Modifier.width(intrinsicSize = IntrinsicSize.Max)) {
          Row(verticalAlignment = Alignment.CenterVertically) {
-            ContactImage(modifier = Modifier.width(96.dp), imgId = imageId, name = "Edit Screen")
+            ContactImage(modifier = Modifier.width(96.dp), imgId = picture, name = "Edit Screen")
             Spacer(modifier = Modifier.size(16.dp))
-            Button(onClick = { onRandom() }) {
+            Button(onClick = { onRandomPressed() }) {
                Text(text = "Shuffle Profile Pic")
             }
          }
          Spacer(modifier = Modifier.size(16.dp))
-         OutlinedTextField( //TODO: text limit
-            value = contact?.name ?: "",
-            onValueChange = { contact?.name = it },
-            label = { Text("Contact Name") }
+         OutlinedTextField( //TODO:text size limit
+            value = name,
+            onValueChange = { onNameChange(it) },
+            label = { Text("Contact Name") },
+            singleLine = true,
+
          )
          Divider(thickness = 1.dp, modifier = Modifier.padding(vertical = 20.dp))
          Text(text = "Nudge Settings:")
          Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = false, onCheckedChange = {}) //Todo: make work
+            Checkbox(checked = isNudger, onCheckedChange = {onNudgeChange(it)}) //Todo: make work
             Text(text = "Nudge me to message them")
          }
-         OutlinedTextField( //TODO: only allow Ints
-            value = contact?.nudgeDayInterval?.toString() ?: "",
-            onValueChange = { contact?.nudgeDayInterval =  it.toInt()},
+         OutlinedTextField(
+            value = dayInterval?.toString() ?: "",
+            onValueChange = { onDayIntervalChange(it) },
             label = { Text("How Often (In Days)") },
-            enabled = true
+            enabled = isNudger
          )
          Row(horizontalArrangement = Arrangement.SpaceEvenly,
          modifier = Modifier
@@ -186,11 +193,11 @@ fun EditContactScreen(modifier: Modifier = Modifier, onRandom: () -> Unit,
             .padding(vertical = 24.dp)) {
             val buttonModifier = Modifier.width(102.dp)
             Button(modifier = buttonModifier,
-               onClick = { onSave() }) {
-               Text(text = "Save", )
+               onClick = { onSavePressed() }) {
+               Text(text = "Save" )
             }
             OutlinedButton(modifier = buttonModifier,
-               onClick = { onCancel() }) {
+               onClick = { onCancelPressed() }) {
                Text(text = "Cancel")
             }
          }
