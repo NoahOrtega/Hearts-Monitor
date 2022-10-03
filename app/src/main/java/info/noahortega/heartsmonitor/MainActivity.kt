@@ -122,10 +122,10 @@ fun BottomBar(modifier: Modifier = Modifier, nav : NavHostController) {
    val navBackStackEntry by nav.currentBackStackEntryAsState()
    val currentDestination = navBackStackEntry?.destination
 
-   BottomNavigation(modifier = modifier) {
+   NavigationBar(modifier = modifier) {
       screenList.forEach { screen ->
          val onThisScreen = currentDestination?.hierarchy?.any { it.route == screen.route }
-         BottomNavigationItem(
+         NavigationBarItem(
             icon = { Icon(screen.icon, null) },
             label = { Text(stringResource(id = screen.resourceId)) },
             selected = onThisScreen == true,
