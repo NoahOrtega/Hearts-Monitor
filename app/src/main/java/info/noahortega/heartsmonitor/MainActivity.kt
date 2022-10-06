@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.BottomNavigation
-import androidx.compose.material.BottomNavigationItem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Favorite
@@ -36,6 +34,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import info.noahortega.heartsmonitor.ui.theme.HeartsMonitorTheme
+import java.time.LocalDateTime
 
 class MainActivity : ComponentActivity() {
    override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,7 +48,6 @@ class MainActivity : ComponentActivity() {
       }
    }
 }
-
 
 sealed class Screen(val route: String, @StringRes val resourceId: Int, val icon : ImageVector) {
    object Contact : Screen("contact", R.string.screen_contact, Icons.Filled.Favorite)
@@ -68,32 +66,32 @@ fun EntryPoint() {
          val mod = Modifier.padding(it)
          NavHost(navController = nav, startDestination = Screen.Contact.route) {
             composable(Screen.Contact.route) { ContactsScreen (
-               contacts = listOf(),
+               contacts = vm.contactList,
                modifier = mod.fillMaxSize(),
                onFab = {
                   vm.onFabPressed()
                   nav.navigate(Screen.Edit.route)
-               })}
+               }, contactListItemMessage = vm::contactListItemMessage )}
             composable(Screen.Edit.route) {
                EditContactScreen(
-                  name = vm.myEditState.name.value, picture = vm.myEditState.imgId.value,
-                  isNudger = vm.myEditState.isNudger.value, dayInterval = vm.myEditState.nudgeDayInterval.value,
+                  name = vm.myEditState.name, picture = vm.myEditState.imgId,
+                  isNudger = vm.myEditState.isNudger, dayInterval = vm.myEditState.nudgeDayInterval,
                   onRandomPressed = {vm.onRandomPicPress()},
                   modifier = mod.fillMaxSize(),
                   onSavePressed = {
-                     //TODO: save in vm + prevent multiple presses
+                     vm.onSavePressed()
                      nav.popBackStack()
                   },
                   onCancelPressed = {
                      nav.popBackStack()
                   },
-                  onNameChange = {name -> vm.myEditState.name.value = name},
+                  onNameChange = {name -> vm.myEditState.name = name},
                   onDayIntervalChange = {interval -> vm.tryToChangeInterval(interval)},
-                  onNudgeChange = {doNudge -> vm.myEditState.isNudger.value = doNudge},
+                  onNudgeChange = {doNudge -> vm.myEditState.isNudger = doNudge},
                )}
             composable(Screen.Nudge.route) { }
             composable(Screen.Random.route) { SuggestionScreen(
-               contact = vm.suggestedContact.value,
+               contact = vm.suggestedContact,
                modifier = mod.fillMaxSize(),
                onChat = { vm.contactSuggestionPressed()},
                onIgnore = {vm.newSuggestionPressed()})}
@@ -139,7 +137,6 @@ fun BottomBar(modifier: Modifier = Modifier, nav : NavHostController) {
                   launchSingleTop = true
                   // Restore state when selecting a previously selected item
                   restoreState = true
-
                }
             }
          )
@@ -182,7 +179,7 @@ fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval
             Text(text = "Nudge me to message them")
          }
          OutlinedTextField(
-            value = dayInterval?.toString() ?: "",
+            value = dayInterval ?: "",
             onValueChange = { onDayIntervalChange(it) },
             label = { Text("How Often (In Days)") },
             enabled = isNudger
@@ -201,28 +198,29 @@ fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval
                Text(text = "Cancel")
             }
          }
-
       }
    }
 }
 
-//@Preview
-@Composable
-fun TestContactsScreen() {
-   val vm: HeartsViewModel = viewModel()
-   ContactsScreen(contacts = vm.dummyContacts(4))
-}
+////@Preview
+//@Composable
+//fun TestContactsScreen() {
+//   val vm: HeartsViewModel = viewModel()
+//   ContactsScreen(contacts = vm.dummyContacts(4))
+//}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ContactsScreen(contacts : List<Contact>, modifier: Modifier = Modifier, onFab: () -> Unit = {}) {
+fun ContactsScreen(contacts : List<Contact>, modifier: Modifier = Modifier,
+                   contactListItemMessage: (LocalDateTime) -> String,
+                   onFab: () -> Unit = {}) {
    Box(modifier = modifier) {
-      LazyColumn(contentPadding = PaddingValues(bottom = 20.dp),) {
+      LazyColumn(contentPadding = PaddingValues(bottom = 20.dp)) {
          items(contacts)
          { contact ->
             ContactItem(imgId = contact.picture,
                name = contact.name,
-               dateMessage = "Example message") //TODO:
+               dateMessage = contactListItemMessage(contact.lastMessageDate))
          }
       }
       FloatingActionButton(
@@ -275,7 +273,7 @@ fun ContactItem(imgId: Int, name: String, dateMessage: String,
 fun SuggTest() {
    val vm : HeartsViewModel = viewModel()
    val contact = vm.dummyContact()
-   Surface() {
+   Surface {
       SuggestionScreen(contact = contact)
    }
 }
@@ -307,7 +305,7 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
       }
 
 
-      Row() {
+      Row {
          val buttonModifier = Modifier.padding(horizontal = 5.dp)
          Button(modifier = buttonModifier,
             onClick = { onChat() }) {

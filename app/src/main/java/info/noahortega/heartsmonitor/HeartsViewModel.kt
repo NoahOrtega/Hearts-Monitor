@@ -1,12 +1,10 @@
 package info.noahortega.heartsmonitor
 
-
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import java.time.*
+import java.time.temporal.ChronoUnit
 import kotlin.random.Random
-
 
 val defaultProfilePics = listOf(
    R.drawable.smiles000,
@@ -18,63 +16,97 @@ val defaultProfilePics = listOf(
 )
 
 class HeartsViewModel : ViewModel() {
+   //General data state functions
+   private fun addContact(contact : Contact) {
+      contactList.add(contact)
+
+      //todo: add to database
+   }
+
    //Contacts Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   val contactList = mutableStateListOf<Contact>()
 
    fun onFabPressed() {
-      setEditState(null)
+      myEditState.setState(null)
    }
    fun onContactPressed(contact: Contact) {
-      setEditState(contact)
+      myEditState.setState(contact)
+   }
+   //Contacts Screen Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   fun contactListItemMessage(lastContacted: LocalDateTime) : String {
+      val curTime = LocalDateTime.now()
+      lastContacted.until(curTime, ChronoUnit.HOURS).run {
+         if (this < 24) return "Just Contacted!"
+      }
+      lastContacted.until(curTime, ChronoUnit.DAYS).run {
+         if (this < 365) return "It's been $this days..."
+      }
+      lastContacted.until(curTime, ChronoUnit.DAYS).run {
+         return "It's been $this months..."
+      }
    }
 
 
-   //Edit Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   data class EditUIState(
-      val name: MutableState<String> = mutableStateOf(""),
-      val imgId: MutableState<Int> = mutableStateOf(0),
-      val isNudger: MutableState<Boolean>  = mutableStateOf(false),
-      val nudgeDayInterval: MutableState<String?> = mutableStateOf(null),
-   )
-   val myEditState : EditUIState = EditUIState()
-   fun setEditState(contact: Contact?) {
-      if(contact == null) {
-         myEditState.apply {
-            this.name.value = ""
-            this.imgId.value = defaultProfilePics.random()
-            this.isNudger.value = false
-            this.nudgeDayInterval.value = ""
+   //Edit Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   val myEditState = EditUIState().apply { this.setState(null)}
+   class EditUIState() {
+      var name by mutableStateOf("default")
+      var imgId by mutableStateOf(defaultProfilePics.first())
+      var isNudger by mutableStateOf(false)
+      var nudgeDayInterval by mutableStateOf(null as String?)
+   }
+   private fun EditUIState.setState(contact: Contact?) {
+         this.apply {
+            this.name = contact?.name ?: ""
+            this.imgId = contact?.picture ?: defaultProfilePics.random()
+            this.isNudger = contact?.isNudger ?: false
+            this.nudgeDayInterval = contact?.nudgeDayInterval?.toString() ?: ""
+         }
+   }
+
+   fun onRandomPicPress() {
+      myEditState.imgId = defaultProfilePics.filter { it != myEditState.imgId}.random()
+   }
+   fun tryToChangeInterval(interval: String) {
+      if(interval.toIntOrNull() != null || interval == "") myEditState.nudgeDayInterval = interval
+   }
+   fun onSavePressed() {
+      //TODO: Fully validate
+      if(myEditState.name != "") {
+         if (!myEditState.isNudger || myEditState.nudgeDayInterval?.toIntOrNull() != null) {
+            val nudgeDayInterval: Int? = myEditState.nudgeDayInterval?.toIntOrNull()
+            val newContact = Contact(
+               name = myEditState.name,
+               picture = myEditState.imgId,
+               lastMessageDate = LocalDateTime.now(),
+               isNudger = myEditState.isNudger,
+               nudgeDayInterval = nudgeDayInterval,
+               nextNudgeDate = nudgeDayInterval?.let {LocalDateTime.now().plusDays(it.toLong())}
+            )
+            println(newContact)
+            addContact(newContact)
          }
       }
       else {
-         myEditState.apply {
-            this.name.value = contact.name
-            this.imgId.value = contact.picture
-            this.isNudger.value = contact.isNudger
-            this.nudgeDayInterval.value = contact.nudgeDayInterval.toString()
-         }
+         //TODO: error message
       }
    }
-   fun onRandomPicPress() {
-      myEditState.imgId.value = defaultProfilePics.filter { it != myEditState.imgId.value}.random()
-   }
-   fun tryToChangeInterval(interval: String) {
-      if(interval.toIntOrNull() != null || interval == "") myEditState.nudgeDayInterval.value = interval
-   }
 
-   //Suggest Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   val suggestedContact = mutableStateOf(newRandomContact() as Contact?)
+
+
+   //Suggest Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   var suggestedContact by mutableStateOf(newRandomContact() as Contact?)
    fun newSuggestionPressed() {
-      suggestedContact.value = newRandomContact()
+      suggestedContact = newRandomContact()
    }
    fun contactSuggestionPressed() {
-      suggestedContact.value = newRandomContact()
+      suggestedContact = newRandomContact()
    }
    private fun newRandomContact() : Contact?{
       return dummyContacts(4).random()
    }
 
-   //Test Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+   //Test Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    fun dummyContact() : Contact {
       return Contact(
          contactId = -100,
@@ -116,6 +148,7 @@ class HeartsViewModel : ViewModel() {
       return LocalDateTime.ofEpochSecond(random, 0, ZoneOffset.UTC)
    }
 }
+
 
 
 
