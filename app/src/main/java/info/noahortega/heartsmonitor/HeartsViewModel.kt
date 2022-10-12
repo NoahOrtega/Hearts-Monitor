@@ -16,16 +16,24 @@ val defaultProfilePics = listOf(
 )
 
 class HeartsViewModel : ViewModel() {
-   //General data state functions
+   //General data state functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   val contactList = mutableStateListOf<Contact>()
+
+
    private fun addContact(contact : Contact) {
       contactList.add(contact)
-
+      suggestedContact = newRandomContact(null)
       //todo: add to database
    }
 
-   //Contacts Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   val contactList = mutableStateListOf<Contact>()
+   private fun removeContact(contact: Contact?) {
+      contactList.remove(contact)
+      //todo: remove from database
+      suggestedContact = newRandomContact(null)
+   }
 
+   //Contacts Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    fun onFabPressed() {
       myEditState.setState(null)
    }
@@ -36,7 +44,7 @@ class HeartsViewModel : ViewModel() {
    fun contactListItemMessage(lastContacted: LocalDateTime) : String {
       val curTime = LocalDateTime.now()
       lastContacted.until(curTime, ChronoUnit.HOURS).run {
-         if (this < 24) return "Just Contacted!"
+         if (this < 24) return "Contacted Today!"
       }
       lastContacted.until(curTime, ChronoUnit.DAYS).run {
          if (this < 365) return "It's been $this days..."
@@ -71,7 +79,6 @@ class HeartsViewModel : ViewModel() {
       if(interval.toIntOrNull() != null || interval == "") myEditState.nudgeDayInterval = interval
    }
    fun onSavePressed() {
-      //TODO: Fully validate
       if(myEditState.name != "") {
          if (!myEditState.isNudger || myEditState.nudgeDayInterval?.toIntOrNull() != null) {
             val nudgeDayInterval: Int? = myEditState.nudgeDayInterval?.toIntOrNull()
@@ -83,27 +90,36 @@ class HeartsViewModel : ViewModel() {
                nudgeDayInterval = nudgeDayInterval,
                nextNudgeDate = nudgeDayInterval?.let {LocalDateTime.now().plusDays(it.toLong())}
             )
-            println(newContact)
             addContact(newContact)
+         }
+         else {
+            //TODO: nudge interval error message
          }
       }
       else {
-         //TODO: error message
+         //TODO: name error message
       }
    }
 
-
-
    //Suggest Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   var suggestedContact by mutableStateOf(newRandomContact() as Contact?)
+   var suggestedContact by mutableStateOf(newRandomContact(null))
+
    fun newSuggestionPressed() {
-      suggestedContact = newRandomContact()
+      suggestedContact = newRandomContact(suggestedContact)
    }
    fun contactSuggestionPressed() {
-      suggestedContact = newRandomContact()
+      //todo: mark contact as contacted
+      suggestedContact = newRandomContact(suggestedContact)
    }
-   private fun newRandomContact() : Contact?{
-      return dummyContacts(4).random()
+
+   //General Helper Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   private fun newRandomContact(oldContact: Contact?) : Contact? {
+      val strippedList = contactList.filter { it != oldContact}
+      return if(strippedList.isEmpty()) {
+         null
+      } else {
+         strippedList.random()
+      }
    }
 
    //Test Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
