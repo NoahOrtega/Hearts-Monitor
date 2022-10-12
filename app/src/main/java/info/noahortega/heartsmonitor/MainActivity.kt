@@ -61,7 +61,8 @@ sealed class Screen(val route: String, @StringRes val resourceId: Int, val icon 
 fun EntryPoint() {
    val vm : HeartsViewModel = viewModel()
    val nav = rememberNavController()
-   MainScaffold(nav = nav,
+   MainScaffold(
+      nav = nav,
       content = {
          val mod = Modifier.padding(it)
          NavHost(navController = nav, startDestination = Screen.Contact.route) {
@@ -71,7 +72,10 @@ fun EntryPoint() {
                onFab = {
                   vm.onFabPressed()
                   nav.navigate(Screen.Edit.route)
-               }, contactListItemMessage = vm::contactListItemMessage )}
+               },
+               contactListItemMessage = vm::contactListItemMessage,
+               onIconTapped = vm::markAsContacted,
+               onItemTapped = {})}
             composable(Screen.Edit.route) {
                EditContactScreen(
                   name = vm.myEditState.name, picture = vm.myEditState.imgId,
@@ -213,6 +217,8 @@ fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval
 @Composable
 fun ContactsScreen(contacts : List<Contact>, modifier: Modifier = Modifier,
                    contactListItemMessage: (LocalDateTime) -> String,
+                   onIconTapped: (contactId: Long) -> Unit,
+                   onItemTapped: () -> Unit,
                    onFab: () -> Unit = {}) {
    Box(modifier = modifier) {
       LazyColumn(contentPadding = PaddingValues(bottom = 20.dp)) {
@@ -220,7 +226,9 @@ fun ContactsScreen(contacts : List<Contact>, modifier: Modifier = Modifier,
          { contact ->
             ContactItem(imgId = contact.picture,
                name = contact.name,
-               dateMessage = contactListItemMessage(contact.lastMessageDate))
+               dateMessage = contactListItemMessage(contact.lastMessageDate),
+               onItemTapped = onItemTapped,
+               onIconTap = {onIconTapped(contact.contactId)})
          }
       }
       FloatingActionButton(
@@ -246,8 +254,8 @@ fun ItemTest() {
 @ExperimentalMaterial3Api
 fun ContactItem(imgId: Int, name: String, dateMessage: String,
                 modifier: Modifier = Modifier, isExpired: Boolean = false,
-                onItemClicked: () -> Unit = {}, onIconTap: () -> Unit = {}) {
-   ListItem(modifier = modifier.clickable { onItemClicked()},
+                onItemTapped: () -> Unit = {}, onIconTap: () -> Unit = {}) {
+   ListItem(modifier = modifier.clickable { onItemTapped()},
       leadingContent = {
          ContactImage(modifier = Modifier.width(48.dp), imgId = imgId, name = name)
       },
@@ -295,30 +303,29 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
          ContactImage(modifier = Modifier.width(min(screenHeight, screenWidth) / 2), imgId = contact.picture, name = contact.name)
 
          Text(style = MaterialTheme.typography.titleLarge, text = contact.name)
+
+         Row {
+            val buttonModifier = Modifier.padding(horizontal = 5.dp)
+            Button(modifier = buttonModifier,
+               onClick = { onChat() }) {
+               Icon(imageVector = Icons.Outlined.Favorite, null)
+               Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+               Text(text = "Will Do")
+            }
+            OutlinedButton(modifier = buttonModifier,
+               onClick = { onIgnore() }) {
+               Icon(imageVector = Icons.Filled.Close, null)
+               Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+               Text(text = "Not Now")
+            }
+         }
       }
       else {
-         Text(style = MaterialTheme.typography.titleLarge,text = "Why not chat add a new contact")
+         Text(style = MaterialTheme.typography.titleLarge,text = "Why not add a new contact")
 
          ContactImage(modifier = Modifier.width(min(screenHeight, screenWidth) / 2), imgId = R.drawable.smiles000, name = "Default Contact")
 
          Text(style = MaterialTheme.typography.titleLarge, text = "")
-      }
-
-
-      Row {
-         val buttonModifier = Modifier.padding(horizontal = 5.dp)
-         Button(modifier = buttonModifier,
-            onClick = { onChat() }) {
-            Icon(imageVector = Icons.Outlined.Favorite, null)
-            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-            Text(text = "Will Do")
-         }
-         OutlinedButton(modifier = buttonModifier,
-            onClick = { onIgnore() }) {
-            Icon(imageVector = Icons.Filled.Close, null)
-            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-            Text(text = "Not Now")
-         }
       }
    }
 }

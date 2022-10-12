@@ -17,20 +17,28 @@ val defaultProfilePics = listOf(
 
 class HeartsViewModel : ViewModel() {
    //General data state functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   private val _contactList = mutableStateListOf<Contact>()
+   val contactList: List<Contact> = _contactList
 
-   val contactList = mutableStateListOf<Contact>()
-
+   var suggestedContact by mutableStateOf(newRandomContact(null))
+      private set
 
    private fun addContact(contact : Contact) {
-      contactList.add(contact)
+      _contactList.add(contact)
       suggestedContact = newRandomContact(null)
       //todo: add to database
    }
 
    private fun removeContact(contact: Contact?) {
-      contactList.remove(contact)
+      _contactList.remove(contact)
       //todo: remove from database
       suggestedContact = newRandomContact(null)
+   }
+
+   fun markAsContacted(contactId: Long) {
+      val itemIndex = _contactList.indexOfFirst { it.contactId == contactId}
+      _contactList[itemIndex] = _contactList[itemIndex].copy(lastMessageDate = LocalDateTime.now())
+      //todo: update database
    }
 
    //Contacts Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -53,7 +61,6 @@ class HeartsViewModel : ViewModel() {
          return "It's been $this months..."
       }
    }
-
 
    //Edit Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    val myEditState = EditUIState().apply { this.setState(null)}
@@ -83,6 +90,8 @@ class HeartsViewModel : ViewModel() {
          if (!myEditState.isNudger || myEditState.nudgeDayInterval?.toIntOrNull() != null) {
             val nudgeDayInterval: Int? = myEditState.nudgeDayInterval?.toIntOrNull()
             val newContact = Contact(
+               //FIXME: just for testing until the database is set up
+               contactId = (0..50000).random().toLong(),
                name = myEditState.name,
                picture = myEditState.imgId,
                lastMessageDate = LocalDateTime.now(),
@@ -102,13 +111,11 @@ class HeartsViewModel : ViewModel() {
    }
 
    //Suggest Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   var suggestedContact by mutableStateOf(newRandomContact(null))
-
    fun newSuggestionPressed() {
       suggestedContact = newRandomContact(suggestedContact)
    }
    fun contactSuggestionPressed() {
-      //todo: mark contact as contacted
+      markAsContacted(suggestedContact!!.contactId) //this button is hidden when null
       suggestedContact = newRandomContact(suggestedContact)
    }
 

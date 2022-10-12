@@ -3,11 +3,11 @@ package info.noahortega.heartsmonitor
 import java.time.LocalDateTime
 
 data class Contact(
-   val contactId: Long? =  null,
-   var name: String = "Test Contact",
-   var picture: Int = R.drawable.smiles000,
-   var lastMessageDate: LocalDateTime,
-   var isNudger: Boolean,
-   var nudgeDayInterval: Int?,
-   var nextNudgeDate: LocalDateTime? = null,
+   val contactId: Long =  -1,
+   val name: String = "Test Contact",
+   val picture: Int = R.drawable.smiles000,
+   val lastMessageDate: LocalDateTime,
+   val isNudger: Boolean,
+   val nudgeDayInterval: Int?,
+   val nextNudgeDate: LocalDateTime? = null
 )
