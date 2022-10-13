@@ -5,24 +5,30 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.StringRes
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.FractionalThreshold
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.rememberSwipeableState
+import androidx.compose.material.swipeable
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,6 +41,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import info.noahortega.heartsmonitor.ui.theme.HeartsMonitorTheme
 import java.time.LocalDateTime
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
    override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,7 +81,8 @@ fun EntryPoint() {
                   nav.navigate(Screen.Edit.route)
                },
                contactListItemMessage = vm::contactListItemMessage,
-               onIconTapped = vm::markAsContacted,
+               onHeartTapped = vm::onHeartPressed,
+               onTrashTapped = vm::onTrashPressed,
                onItemTapped = {})}
             composable(Screen.Edit.route) {
                EditContactScreen(
@@ -213,22 +221,26 @@ fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval
 //   ContactsScreen(contacts = vm.dummyContacts(4))
 //}
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
-fun ContactsScreen(contacts : List<Contact>, modifier: Modifier = Modifier,
-                   contactListItemMessage: (LocalDateTime) -> String,
-                   onIconTapped: (contactId: Long) -> Unit,
-                   onItemTapped: () -> Unit,
-                   onFab: () -> Unit = {}) {
+fun ContactsScreen(
+   contacts: List<Contact>, modifier: Modifier = Modifier,
+   contactListItemMessage: (LocalDateTime) -> String,
+   onHeartTapped: (contactId: Long) -> Unit,
+   onItemTapped: () -> Unit,
+   onTrashTapped: (Contact) -> Unit,
+   onFab: () -> Unit = {},
+) {
    Box(modifier = modifier) {
       LazyColumn(contentPadding = PaddingValues(bottom = 20.dp)) {
-         items(contacts)
+         items(items = contacts, key = {it.contactId})
          { contact ->
-            ContactItem(imgId = contact.picture,
-               name = contact.name,
-               dateMessage = contactListItemMessage(contact.lastMessageDate),
-               onItemTapped = onItemTapped,
-               onIconTap = {onIconTapped(contact.contactId)})
+               ContactItem(imgId = contact.picture,
+                  name = contact.name,
+                  dateMessage = contactListItemMessage(contact.lastMessageDate),
+                  onItemTapped = onItemTapped,
+                  onTrashTapped = {onTrashTapped(contact)},
+                  onIconTap = {onHeartTapped(contact.contactId)})
          }
       }
       FloatingActionButton(
@@ -242,38 +254,72 @@ fun ContactsScreen(contacts : List<Contact>, modifier: Modifier = Modifier,
    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Preview
-@Composable
-fun ItemTest() {
-   ContactItem(imgId = R.drawable.smiles001,
-      name = "Noah Ortega",
-      dateMessage = "it's been 14 days")
-}
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Preview
+//@Composable
+//fun ItemTest() {
+//   ContactItem(
+//      imgId = R.drawable.smiles001,
+//      name = "Noah Ortega",
+//      dateMessage = "it's been 14 days"
+//   ) { onTrashTapped(contact) }
+//}
+
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 @ExperimentalMaterial3Api
-fun ContactItem(imgId: Int, name: String, dateMessage: String,
-                modifier: Modifier = Modifier, isExpired: Boolean = false,
-                onItemTapped: () -> Unit = {}, onIconTap: () -> Unit = {}) {
-   ListItem(modifier = modifier.clickable { onItemTapped()},
-      leadingContent = {
-         ContactImage(modifier = Modifier.width(48.dp), imgId = imgId, name = name)
-      },
-      headlineText = { Text(text = name) },
-      supportingText = { Text(dateMessage) },
-      trailingContent = {
-         Icon(
-            painter = if(isExpired) painterResource(id = R.drawable.ic_baseline_heart_broken_24)
-                        else painterResource(id = R.drawable.ic_baseline_favorite_24),
-            contentDescription = "Mark as Contacted",
-            modifier = Modifier
-               .size(32.dp)
-               .clickable {
-                  onIconTap()
-               }
-         )
-      }
-   )
+fun ContactItem(
+   imgId: Int, name: String, dateMessage: String,
+   modifier: Modifier = Modifier, isExpired: Boolean = false,
+   onItemTapped: () -> Unit = {}, onIconTap: () -> Unit = {}, onTrashTapped: () -> Unit
+) {
+   val swipeableState = rememberSwipeableState(0)
+   val sizePx = with(LocalDensity.current) { 80.dp.toPx() }
+   val anchors = mapOf(0f to 0, sizePx to 1) // Maps anchor points (in px) to states
+
+   Box(
+      modifier = Modifier
+         .swipeable(
+            state = swipeableState,
+            anchors = anchors,
+            thresholds = { _, _ -> FractionalThreshold(0.3f) },
+            orientation = Orientation.Horizontal
+         )) {
+      Icon(painter = painterResource(id = R.drawable.ic_round_delete_24), contentDescription = "Delete",
+         tint = MaterialTheme.colorScheme.error,
+         modifier = Modifier
+            .offset(x = 16.dp, y = 0.dp)
+            .size(40.dp)
+            .align(alignment = Alignment.CenterStart)
+            .clickable { onTrashTapped() })
+      ListItem(
+         modifier = modifier
+            .offset { IntOffset(swipeableState.offset.value.roundToInt(), 0) }
+            .clickable {
+               onItemTapped()
+            },
+         leadingContent = {
+            ContactImage(modifier = Modifier
+               .width(48.dp),
+               imgId = imgId, name = name)
+         },
+         headlineText = { Text(text = name) },
+         supportingText = { Text(dateMessage) },
+         trailingContent = {
+            Icon(
+               painter = if(isExpired) painterResource(id = R.drawable.ic_baseline_heart_broken_24)
+               else painterResource(id = R.drawable.ic_baseline_favorite_24),
+               contentDescription = "Mark as Contacted",
+               modifier = Modifier
+                  .size(32.dp)
+                  .clickable {
+                     onIconTap()
+                  }
+            )
+         }
+      )
+
+   }
 }
 
 //@Preview(showBackground = true)

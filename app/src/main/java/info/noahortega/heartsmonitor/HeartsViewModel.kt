@@ -2,6 +2,11 @@ package info.noahortega.heartsmonitor
 
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.*
 import java.time.temporal.ChronoUnit
 import kotlin.random.Random
@@ -20,34 +25,58 @@ class HeartsViewModel : ViewModel() {
    private val _contactList = mutableStateListOf<Contact>()
    val contactList: List<Contact> = _contactList
 
-   var suggestedContact by mutableStateOf(newRandomContact(null))
+   var suggestedContact by mutableStateOf(null as Contact?)
       private set
+
+   init {
+      getFullContactList()
+   }
+
+   private fun getFullContactList() {
+      viewModelScope.launch(Dispatchers.Main) {
+         withContext(Dispatchers.Main) {
+            //FIXME: should probably be a launched effect in the composable
+            _contactList.addAll(dummyContacts(10))
+            suggestedContact = getRandomContact(null)
+         }
+      }
+   }
 
    private fun addContact(contact : Contact) {
       _contactList.add(contact)
-      suggestedContact = newRandomContact(null)
+      suggestedContact = getRandomContact(null)
       //todo: add to database
    }
 
    private fun removeContact(contact: Contact?) {
       _contactList.remove(contact)
       //todo: remove from database
-      suggestedContact = newRandomContact(null)
+      suggestedContact = getRandomContact(null)
    }
 
-   fun markAsContacted(contactId: Long) {
+   private fun markAsContacted(contactId: Long) {
       val itemIndex = _contactList.indexOfFirst { it.contactId == contactId}
       _contactList[itemIndex] = _contactList[itemIndex].copy(lastMessageDate = LocalDateTime.now())
       //todo: update database
    }
 
    //Contacts Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   var expandedItemId by mutableStateOf(null as Long?)
+      private set
+
    fun onFabPressed() {
       myEditState.setState(null)
    }
    fun onContactPressed(contact: Contact) {
       myEditState.setState(contact)
    }
+   fun onHeartPressed(contactId: Long) {
+      markAsContacted(contactId)
+   }
+   fun onTrashPressed(contact: Contact) {
+      removeContact(contact)
+   }
+
    //Contacts Screen Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    fun contactListItemMessage(lastContacted: LocalDateTime) : String {
       val curTime = LocalDateTime.now()
@@ -112,16 +141,18 @@ class HeartsViewModel : ViewModel() {
 
    //Suggest Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    fun newSuggestionPressed() {
-      suggestedContact = newRandomContact(suggestedContact)
+      suggestedContact = getRandomContact(suggestedContact)
    }
    fun contactSuggestionPressed() {
-      markAsContacted(suggestedContact!!.contactId) //this button is hidden when null
-      suggestedContact = newRandomContact(suggestedContact)
+      suggestedContact?.let {
+         markAsContacted(it.contactId) //this button is hidden when null
+         suggestedContact = getRandomContact(it)
+      }
    }
 
    //General Helper Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   private fun newRandomContact(oldContact: Contact?) : Contact? {
-      val strippedList = contactList.filter { it != oldContact}
+   private fun getRandomContact(oldContact: Contact?) : Contact? {
+      val strippedList = contactList.filter { it.contactId != oldContact?.contactId}
       return if(strippedList.isEmpty()) {
          null
       } else {
