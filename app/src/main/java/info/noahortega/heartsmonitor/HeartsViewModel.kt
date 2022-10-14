@@ -1,8 +1,14 @@
 package info.noahortega.heartsmonitor
 
+import android.app.Application
 import androidx.compose.runtime.*
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.Room
+import info.noahortega.heartsmonitor.room.AppDatabase
+import info.noahortega.heartsmonitor.room.entities.Contact
+import info.noahortega.heartsmonitor.room.entities.ContactDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -20,7 +26,7 @@ val defaultProfilePics = listOf(
    R.drawable.smiles005,
 )
 
-class HeartsViewModel : ViewModel() {
+class HeartsViewModel(application: Application) : AndroidViewModel(application) {
    //General data state functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    private val _contactList = mutableStateListOf<Contact>()
    val contactList: List<Contact> = _contactList
@@ -28,36 +34,55 @@ class HeartsViewModel : ViewModel() {
    var suggestedContact by mutableStateOf(null as Contact?)
       private set
 
+   private lateinit var dao: ContactDao
    init {
+      val db = Room.databaseBuilder(
+         application,
+         AppDatabase::class.java, "database-name"
+      ).build()
+      dao = db.contactDao()
+
       getFullContactList()
    }
 
    private fun getFullContactList() {
-      viewModelScope.launch(Dispatchers.Main) {
-         withContext(Dispatchers.Main) {
-            //FIXME: should probably be a launched effect in the composable
-            _contactList.addAll(dummyContacts(10))
+      viewModelScope.launch(Dispatchers.IO) {
+
+            delay(1000L)
+            //FIXME: both of these should probably instead be a launched effect in a composable
+            _contactList.addAll(dao.getAll())
             suggestedContact = getRandomContact(null)
-         }
       }
    }
 
    private fun addContact(contact : Contact) {
-      _contactList.add(contact)
-      suggestedContact = getRandomContact(null)
-      //todo: add to database
+      viewModelScope.launch(Dispatchers.IO) {
+            dao.insert(contact).also { dbRowId ->
+               println("+ Room: added contact '${contact.name}' with id $dbRowId")
+               _contactList.add(contact.copy(contactId = dbRowId))
+            }
+         suggestedContact = getRandomContact(null)
+      }
    }
 
-   private fun removeContact(contact: Contact?) {
-      _contactList.remove(contact)
-      //todo: remove from database
-      suggestedContact = getRandomContact(null)
+   private fun removeContact(contact: Contact) {
+      viewModelScope.launch(Dispatchers.IO) {
+         dao.delete(contact)
+         _contactList.remove(contact)
+         println("+ Room: added contact '${contact.name}' with id ${contact.contactId}")
+         suggestedContact = getRandomContact(null)
+      }
    }
 
    private fun markAsContacted(contactId: Long) {
-      val itemIndex = _contactList.indexOfFirst { it.contactId == contactId}
-      _contactList[itemIndex] = _contactList[itemIndex].copy(lastMessageDate = LocalDateTime.now())
-      //todo: update database
+      viewModelScope.launch(Dispatchers.IO) {
+         val itemIndex = _contactList.indexOfFirst { it.contactId == contactId}
+         val updatedContact = _contactList[itemIndex].copy(lastMessageDate = LocalDateTime.now())
+         dao.update(updatedContact)
+         _contactList[itemIndex] = updatedContact
+
+         println("> Room: edited contact '${updatedContact.name}' with id ${updatedContact.contactId}")
+      }
    }
 
    //Contacts Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -119,8 +144,6 @@ class HeartsViewModel : ViewModel() {
          if (!myEditState.isNudger || myEditState.nudgeDayInterval?.toIntOrNull() != null) {
             val nudgeDayInterval: Int? = myEditState.nudgeDayInterval?.toIntOrNull()
             val newContact = Contact(
-               //FIXME: just for testing until the database is set up
-               contactId = (0..50000).random().toLong(),
                name = myEditState.name,
                picture = myEditState.imgId,
                lastMessageDate = LocalDateTime.now(),

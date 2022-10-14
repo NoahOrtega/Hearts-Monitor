@@ -39,6 +39,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import info.noahortega.heartsmonitor.room.entities.Contact
 import info.noahortega.heartsmonitor.ui.theme.HeartsMonitorTheme
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
