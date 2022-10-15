@@ -1,19 +1,21 @@
 package info.noahortega.heartsmonitor
 
 import android.app.Application
-import androidx.compose.runtime.*
+import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import info.noahortega.heartsmonitor.room.AppDatabase
 import info.noahortega.heartsmonitor.room.entities.Contact
 import info.noahortega.heartsmonitor.room.entities.ContactDao
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.time.*
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import kotlin.random.Random
 
@@ -34,34 +36,28 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
    var suggestedContact by mutableStateOf(null as Contact?)
       private set
 
-   private lateinit var dao: ContactDao
+   private var dao: ContactDao
    init {
       val db = Room.databaseBuilder(
          application,
          AppDatabase::class.java, "database-name"
       ).build()
       dao = db.contactDao()
-
-      getFullContactList()
    }
-
-   private fun getFullContactList() {
+   
+   fun composeLateInit() {
+      Log.i("<3", "Launched Effect late init")
       viewModelScope.launch(Dispatchers.IO) {
-
-            delay(1000L)
-            //FIXME: both of these should probably instead be a launched effect in a composable
-            _contactList.addAll(dao.getAll())
-            suggestedContact = getRandomContact(null)
+            if(_contactList.isEmpty()) _contactList.addAll(dao.getAll())
       }
    }
 
    private fun addContact(contact : Contact) {
       viewModelScope.launch(Dispatchers.IO) {
             dao.insert(contact).also { dbRowId ->
-               println("+ Room: added contact '${contact.name}' with id $dbRowId")
                _contactList.add(contact.copy(contactId = dbRowId))
+               Log.i("<3 Room", "+ Room: added contact '${contact.name}' with id $dbRowId")
             }
-         suggestedContact = getRandomContact(null)
       }
    }
 
@@ -69,8 +65,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
       viewModelScope.launch(Dispatchers.IO) {
          dao.delete(contact)
          _contactList.remove(contact)
-         println("+ Room: added contact '${contact.name}' with id ${contact.contactId}")
-         suggestedContact = getRandomContact(null)
+         Log.i("<3 Room", "- Room: removed contact '${contact.name}' with id ${contact.contactId}")
       }
    }
 
@@ -80,14 +75,20 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
          val updatedContact = _contactList[itemIndex].copy(lastMessageDate = LocalDateTime.now())
          dao.update(updatedContact)
          _contactList[itemIndex] = updatedContact
+         Log.i("<3 Room", "> Room: marked '${updatedContact.name}' as contacted with id ${updatedContact.contactId}")
+      }
+   }
 
-         println("> Room: edited contact '${updatedContact.name}' with id ${updatedContact.contactId}")
+   private fun updateContact(editedContact: Contact) {
+      viewModelScope.launch(Dispatchers.IO) {
+         val itemIndex = _contactList.indexOfFirst { it.contactId == editedContact.contactId}
+         dao.update(editedContact)
+         _contactList[itemIndex] = editedContact
+         Log.i("<3 Room", "> Room: edited contact '${editedContact.name}' with id ${editedContact.contactId}")
       }
    }
 
    //Contacts Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   var expandedItemId by mutableStateOf(null as Long?)
-      private set
 
    fun onFabPressed() {
       myEditState.setState(null)
@@ -118,7 +119,8 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
 
    //Edit Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    val myEditState = EditUIState().apply { this.setState(null)}
-   class EditUIState() {
+   class EditUIState {
+      var contact: Contact = Contact()
       var name by mutableStateOf("default")
       var imgId by mutableStateOf(defaultProfilePics.first())
       var isNudger by mutableStateOf(false)
@@ -126,6 +128,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
    }
    private fun EditUIState.setState(contact: Contact?) {
          this.apply {
+            this.contact = contact ?: Contact()
             this.name = contact?.name ?: ""
             this.imgId = contact?.picture ?: defaultProfilePics.random()
             this.isNudger = contact?.isNudger ?: false
@@ -143,7 +146,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
       if(myEditState.name != "") {
          if (!myEditState.isNudger || myEditState.nudgeDayInterval?.toIntOrNull() != null) {
             val nudgeDayInterval: Int? = myEditState.nudgeDayInterval?.toIntOrNull()
-            val newContact = Contact(
+            val newContact = myEditState.contact.copy(
                name = myEditState.name,
                picture = myEditState.imgId,
                lastMessageDate = LocalDateTime.now(),
@@ -151,7 +154,13 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
                nudgeDayInterval = nudgeDayInterval,
                nextNudgeDate = nudgeDayInterval?.let {LocalDateTime.now().plusDays(it.toLong())}
             )
-            addContact(newContact)
+
+            if (newContact.contactId == 0L) {
+               addContact(newContact)
+            }
+            else {
+               updateContact(newContact)
+            }
          }
          else {
             //TODO: nudge interval error message
@@ -162,7 +171,12 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
       }
    }
 
-   //Suggest Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   //Suggest Screen Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   fun suggestLaunchLogic() {
+      val updatedContact = contactList.find { it.contactId == suggestedContact?.contactId }
+      suggestedContact = updatedContact ?: getRandomContact(null)
+   }
+
    fun newSuggestionPressed() {
       suggestedContact = getRandomContact(suggestedContact)
    }

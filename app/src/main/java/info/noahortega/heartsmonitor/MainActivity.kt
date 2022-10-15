@@ -1,6 +1,7 @@
 package info.noahortega.heartsmonitor
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.StringRes
@@ -68,6 +69,11 @@ sealed class Screen(val route: String, @StringRes val resourceId: Int, val icon 
 @Composable
 fun EntryPoint() {
    val vm : HeartsViewModel = viewModel()
+
+   LaunchedEffect(true ) {
+      vm.composeLateInit()
+   }
+
    val nav = rememberNavController()
    MainScaffold(
       nav = nav,
@@ -84,7 +90,10 @@ fun EntryPoint() {
                contactListItemMessage = vm::contactListItemMessage,
                onHeartTapped = vm::onHeartPressed,
                onTrashTapped = vm::onTrashPressed,
-               onItemTapped = {})}
+               onItemTapped = { contact: Contact ->
+                  vm.onContactPressed(contact)
+                  nav.navigate(Screen.Edit.route)
+               })}
             composable(Screen.Edit.route) {
                EditContactScreen(
                   name = vm.myEditState.name, picture = vm.myEditState.imgId,
@@ -106,6 +115,7 @@ fun EntryPoint() {
             composable(Screen.Random.route) { SuggestionScreen(
                contact = vm.suggestedContact,
                modifier = mod.fillMaxSize(),
+               launchLogic = {vm.suggestLaunchLogic()},
                onChat = { vm.contactSuggestionPressed()},
                onIgnore = {vm.newSuggestionPressed()})}
          }
@@ -222,13 +232,13 @@ fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval
 //   ContactsScreen(contacts = vm.dummyContacts(4))
 //}
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class,)
 @Composable
 fun ContactsScreen(
    contacts: List<Contact>, modifier: Modifier = Modifier,
    contactListItemMessage: (LocalDateTime) -> String,
    onHeartTapped: (contactId: Long) -> Unit,
-   onItemTapped: () -> Unit,
+   onItemTapped: (Contact) -> Unit,
    onTrashTapped: (Contact) -> Unit,
    onFab: () -> Unit = {},
 ) {
@@ -239,7 +249,7 @@ fun ContactsScreen(
                ContactItem(imgId = contact.picture,
                   name = contact.name,
                   dateMessage = contactListItemMessage(contact.lastMessageDate),
-                  onItemTapped = onItemTapped,
+                  onItemTapped = {onItemTapped(contact)},
                   onTrashTapped = {onTrashTapped(contact)},
                   onIconTap = {onHeartTapped(contact.contactId)})
          }
@@ -334,10 +344,15 @@ fun SuggTest() {
 }
 @Composable
 fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
+                     launchLogic: () -> Unit = {},
                      onChat: () -> Unit = {}, onIgnore: () -> Unit = {}) {
    val configuration = LocalConfiguration.current
    val screenHeight = configuration.screenHeightDp.dp
    val screenWidth = configuration.screenWidthDp.dp
+
+   LaunchedEffect(true) {
+      launchLogic()
+   }
 
    Column(
       modifier = modifier,
