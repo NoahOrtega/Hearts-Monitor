@@ -1,5 +1,6 @@
 package info.noahortega.heartsmonitor
 
+import android.content.res.Configuration.UI_MODE_TYPE_VR_HEADSET
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -29,6 +30,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -66,7 +69,7 @@ sealed class Screen(val route: String, @StringRes val resourceId: Int, val icon 
    object Random : Screen("random", R.string.screen_random, Icons.Filled.Refresh)
 }
 
-@Preview
+
 @Composable
 fun EntryPoint() {
    val vm : HeartsViewModel = viewModel()
@@ -353,10 +356,34 @@ fun ContactItem(
    }
 }
 
+@Preview(showBackground = true, device = Devices.AUTOMOTIVE_1024p, widthDp = 1024)
+@Preview(showSystemUi = true, device = Devices.PIXEL_2)
+@Composable
+fun SuggestionTest() {
+   val contact = Contact(
+      contactId = 0,
+      name = "Noah Ortega",
+      picture = R.drawable.hearties_64,
+      lastMessageDate = LocalDateTime.now(),
+      isNudger = false,
+      nudgeDayInterval = null,
+      nextNudgeDate = null
+   )
+   SuggestionScreen(contact = contact)
+}
+
+@Preview(showSystemUi = true, device = Devices.PIXEL_2)
+@Composable
+fun SuggestionTestB() {
+   SuggestionScreen(contact = null)
+}
+
+
+
 @Composable
 fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
                      launchLogic: () -> Unit = {},
-                     onChat: () -> Unit = {}, onIgnore: () -> Unit = {}, onAddContact: () -> Unit) {
+                     onChat: () -> Unit = {}, onIgnore: () -> Unit = {}, onAddContact: () -> Unit = {}) {
    val configuration = LocalConfiguration.current
    val screenHeight = configuration.screenHeightDp.dp
    val screenWidth = configuration.screenWidthDp.dp
@@ -364,45 +391,61 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
    LaunchedEffect(true) {
       launchLogic()
    }
+   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
 
-   Column(
-      modifier = modifier,
-      verticalArrangement = Arrangement.SpaceEvenly,
-      horizontalAlignment = Alignment.CenterHorizontally) {
+      Column(
+         modifier = Modifier.padding(horizontal = 30.dp),
+//      verticalArrangement = Arrangement.SpaceEvenly,
+         horizontalAlignment = Alignment.CenterHorizontally
+      ) {
 
-      val noContacts = (contact == null)
+         val noContacts = (contact == null)
 
-      Text(style = MaterialTheme.typography.titleLarge,
-         text = if (noContacts) "Why not create a new contact" else "Why not chat with")
+         Text(
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+            text = if (noContacts) "Why not create a new contact" else "Why not have a chat with",
+         )
 
-      ContactImage(modifier = Modifier.size(min(screenHeight, screenWidth) / 2),
-         imgId = if (noContacts) R.drawable.hearties_q else contact!!.picture,
-         name = if (noContacts) "Missing Contact" else contact!!.name)
+         Spacer(modifier = Modifier.padding(vertical = 20.dp))
 
-      if(noContacts) {
-         OutlinedButton(modifier = Modifier.padding(horizontal = 5.dp),
-            onClick = { onAddContact() }) {
-            Icon(imageVector = Icons.Outlined.Favorite, null)
-            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-            Text(text = "Add Contact")
-         }
-      }
-      else {
-         Text(style = MaterialTheme.typography.titleLarge, text = contact!!.name)
+         ContactImage(
+            modifier = Modifier
+               .size(min(screenHeight, screenWidth) / 2),
+            imgId = if (noContacts) R.drawable.hearties_q else contact!!.picture,
+            name = if (noContacts) "Missing Contact" else contact!!.name
+         )
 
-         Row {
-            val buttonModifier = Modifier.padding(horizontal = 5.dp)
-            Button(modifier = buttonModifier,
-               onClick = { onChat() }) {
+         if (noContacts) {
+            Spacer(modifier = Modifier.padding(vertical = 20.dp))
+
+            OutlinedButton(modifier = Modifier.padding(horizontal = 5.dp),
+               onClick = { onAddContact() }) {
                Icon(imageVector = Icons.Outlined.Favorite, null)
                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-               Text(text = "Will Do")
+               Text(text = "Add Contact")
             }
-            OutlinedButton(modifier = buttonModifier,
-               onClick = { onIgnore() }) {
-               Icon(imageVector = Icons.Filled.Close, null)
-               Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-               Text(text = "Not Now")
+         } else {
+            Spacer(modifier = Modifier.padding(vertical = 10.dp))
+
+            Text(style = MaterialTheme.typography.headlineLarge, text = contact!!.name)
+
+            Spacer(modifier = Modifier.padding(vertical = 10.dp))
+
+            Row {
+               val buttonModifier = Modifier.padding(horizontal = 5.dp)
+               Button(modifier = buttonModifier,
+                  onClick = { onChat() }) {
+                  Icon(imageVector = Icons.Outlined.Favorite, null)
+                  Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                  Text(text = "Will Do")
+               }
+               OutlinedButton(modifier = buttonModifier,
+                  onClick = { onIgnore() }) {
+                  Icon(imageVector = Icons.Filled.Close, null)
+                  Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                  Text(text = "Not Now")
+               }
             }
          }
       }
