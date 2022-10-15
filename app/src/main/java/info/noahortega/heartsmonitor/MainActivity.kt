@@ -1,5 +1,6 @@
 package info.noahortega.heartsmonitor
 
+import android.content.res.Configuration
 import android.content.res.Configuration.UI_MODE_TYPE_VR_HEADSET
 import android.os.Bundle
 import android.util.Log
@@ -387,12 +388,15 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
    val configuration = LocalConfiguration.current
    val screenHeight = configuration.screenHeightDp.dp
    val screenWidth = configuration.screenWidthDp.dp
+   val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
 
    LaunchedEffect(true) {
       launchLogic()
    }
-   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
 
+   Row(modifier = modifier.fillMaxSize(),
+      verticalAlignment = Alignment.CenterVertically,
+   horizontalArrangement = Arrangement.Center) {
       Column(
          modifier = Modifier.padding(horizontal = 30.dp),
 //      verticalArrangement = Arrangement.SpaceEvenly,
@@ -407,7 +411,7 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
             text = if (noContacts) "Why not create a new contact" else "Why not have a chat with",
          )
 
-         Spacer(modifier = Modifier.padding(vertical = 20.dp))
+         Spacer(modifier = Modifier.padding(vertical = if(isPortrait) 20.dp else 2.dp))
 
          ContactImage(
             modifier = Modifier
@@ -417,7 +421,7 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
          )
 
          if (noContacts) {
-            Spacer(modifier = Modifier.padding(vertical = 20.dp))
+            Spacer(modifier = Modifier.padding(vertical = if(isPortrait) 20.dp else 2.dp))
 
             OutlinedButton(modifier = Modifier.padding(horizontal = 5.dp),
                onClick = { onAddContact() }) {
@@ -426,31 +430,43 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
                Text(text = "Add Contact")
             }
          } else {
-            Spacer(modifier = Modifier.padding(vertical = 10.dp))
+            Spacer(modifier = Modifier.padding(vertical = if(isPortrait) 10.dp else 1.dp))
 
             Text(style = MaterialTheme.typography.headlineLarge, text = contact!!.name)
 
-            Spacer(modifier = Modifier.padding(vertical = 10.dp))
+            Spacer(modifier = Modifier.padding(vertical = if(isPortrait) 10.dp else 1.dp))
 
-            Row {
-               val buttonModifier = Modifier.padding(horizontal = 5.dp)
-               Button(modifier = buttonModifier,
-                  onClick = { onChat() }) {
-                  Icon(imageVector = Icons.Outlined.Favorite, null)
-                  Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                  Text(text = "Will Do")
-               }
-               OutlinedButton(modifier = buttonModifier,
-                  onClick = { onIgnore() }) {
-                  Icon(imageVector = Icons.Filled.Close, null)
-                  Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                  Text(text = "Not Now")
+            if(isPortrait) {
+               Row {
+                  SuggestionButtons(modifier = Modifier.padding(5.dp), onChat = onChat, onIgnore = onIgnore)
                }
             }
          }
       }
+      if(!isPortrait) {
+         Column {
+            SuggestionButtons(modifier = Modifier.padding(5.dp), onChat = onChat, onIgnore = onIgnore)
+         }
+      }
    }
 }
+
+@Composable
+fun SuggestionButtons(modifier: Modifier, onChat: () -> Unit, onIgnore: () -> Unit) {
+   Button(modifier = modifier,
+      onClick = { onChat() }) {
+      Icon(imageVector = Icons.Outlined.Favorite, null)
+      Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+      Text(text = "Will Do")
+   }
+   OutlinedButton(modifier = modifier,
+      onClick = { onIgnore() }) {
+      Icon(imageVector = Icons.Filled.Close, null)
+      Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+      Text(text = "Not Now")
+   }
+}
+
 
 @Composable
 fun ContactImage(modifier: Modifier,imgId: Int, name: String) {
