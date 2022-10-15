@@ -149,17 +149,17 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
    fun onRandomPicPress() {
       myEditState.imgId = defaultProfilePics.filter { it != myEditState.imgId}.random()
    }
+
    fun tryToChangeInterval(interval: String) {
       if(interval.toIntOrNull() != null || interval == "") myEditState.nudgeDayInterval = interval
    }
    fun onSavePressed() {
-      //todo: clear errors
       myEditState.clearErrors()
       if(myEditState.name != "" && myEditState.name.length < 40) {
          if (!myEditState.isNudger || myEditState.nudgeDayInterval?.toIntOrNull() != null) {
             val nudgeDayInterval: Int? = myEditState.nudgeDayInterval?.toIntOrNull()
             val newContact = myEditState.contact.copy(
-               name = myEditState.name.replace("\n", "").replace("\r", ""),
+               name = myEditState.name.trim().replace("\n", "").replace("\r", ""),
                picture = myEditState.imgId,
                lastMessageDate = LocalDateTime.now(),
                isNudger = myEditState.isNudger,
