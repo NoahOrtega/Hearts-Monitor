@@ -100,9 +100,13 @@ fun EntryPoint() {
                   isNudger = vm.myEditState.isNudger, dayInterval = vm.myEditState.nudgeDayInterval,
                   onRandomPressed = {vm.onRandomPicPress()},
                   modifier = mod.fillMaxSize(),
+                  nameErrorMessage = vm.myEditState.nameError,
+                  nudgeErrorMessage = vm.myEditState.nudgeError,
                   onSavePressed = {
                      vm.onSavePressed()
-                     nav.popBackStack()
+                     if (vm.myEditState.nameError ==  null && vm.myEditState.nudgeError == null) {
+                           nav.popBackStack()
+                     }
                   },
                   onCancelPressed = {
                      nav.popBackStack()
@@ -170,6 +174,7 @@ fun BottomBar(modifier: Modifier = Modifier, nav : NavHostController) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval: String?,
+                      nameErrorMessage: String?, nudgeErrorMessage: String?,
                       onNameChange: (String) -> Unit, onDayIntervalChange: (String) -> Unit, onNudgeChange: (Boolean)-> Unit,
                       modifier: Modifier = Modifier,
                       onRandomPressed: () -> Unit, onSavePressed: () -> Unit, onCancelPressed: () -> Unit,) {
@@ -188,25 +193,38 @@ fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval
             }
          }
          Spacer(modifier = Modifier.size(16.dp))
+
          OutlinedTextField( //TODO:text size limit
             value = name,
             onValueChange = { onNameChange(it) },
             label = { Text("Contact Name") },
             singleLine = true,
-
+            isError = (nameErrorMessage != null),
          )
+
+         nameErrorMessage?.let { Text(text = it,
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.labelSmall) }
+
          Divider(thickness = 1.dp, modifier = Modifier.padding(vertical = 20.dp))
          Text(text = "Nudge Settings:")
          Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = isNudger, onCheckedChange = {onNudgeChange(it)}) //Todo: make work
             Text(text = "Nudge me to message them")
          }
+
          OutlinedTextField(
+            isError = (nudgeErrorMessage != null),
             value = dayInterval ?: "",
             onValueChange = { onDayIntervalChange(it) },
-            label = { Text("How Often (In Days)") },
+            label = {Text("How Often (In Days)") },
             enabled = isNudger
          )
+
+         nudgeErrorMessage?.let { Text(text = it,
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.labelSmall) }
+
          Row(horizontalArrangement = Arrangement.SpaceEvenly,
          modifier = Modifier
             .fillMaxWidth()

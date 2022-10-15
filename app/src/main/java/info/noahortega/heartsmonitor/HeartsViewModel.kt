@@ -44,7 +44,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
       ).build()
       dao = db.contactDao()
    }
-   
+
    fun composeLateInit() {
       Log.i("<3", "Launched Effect late init")
       viewModelScope.launch(Dispatchers.IO) {
@@ -122,18 +122,28 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
    class EditUIState {
       var contact: Contact = Contact()
       var name by mutableStateOf("default")
+      var nameError by mutableStateOf(null as String?)
       var imgId by mutableStateOf(defaultProfilePics.first())
       var isNudger by mutableStateOf(false)
       var nudgeDayInterval by mutableStateOf(null as String?)
+      var nudgeError by mutableStateOf(null as String?)
    }
    private fun EditUIState.setState(contact: Contact?) {
          this.apply {
             this.contact = contact ?: Contact()
             this.name = contact?.name ?: ""
+
             this.imgId = contact?.picture ?: defaultProfilePics.random()
             this.isNudger = contact?.isNudger ?: false
             this.nudgeDayInterval = contact?.nudgeDayInterval?.toString() ?: ""
+            this.clearErrors()
          }
+   }
+   private fun EditUIState.clearErrors() {
+      this.apply {
+         this.nameError = null
+         this.nudgeError = null
+      }
    }
 
    fun onRandomPicPress() {
@@ -143,18 +153,19 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
       if(interval.toIntOrNull() != null || interval == "") myEditState.nudgeDayInterval = interval
    }
    fun onSavePressed() {
-      if(myEditState.name != "") {
+      //todo: clear errors
+      myEditState.clearErrors()
+      if(myEditState.name != "" && myEditState.name.length < 40) {
          if (!myEditState.isNudger || myEditState.nudgeDayInterval?.toIntOrNull() != null) {
             val nudgeDayInterval: Int? = myEditState.nudgeDayInterval?.toIntOrNull()
             val newContact = myEditState.contact.copy(
-               name = myEditState.name,
+               name = myEditState.name.replace("\n", "").replace("\r", ""),
                picture = myEditState.imgId,
                lastMessageDate = LocalDateTime.now(),
                isNudger = myEditState.isNudger,
                nudgeDayInterval = nudgeDayInterval,
                nextNudgeDate = nudgeDayInterval?.let {LocalDateTime.now().plusDays(it.toLong())}
             )
-
             if (newContact.contactId == 0L) {
                addContact(newContact)
             }
@@ -163,11 +174,11 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
             }
          }
          else {
-            //TODO: nudge interval error message
+            myEditState.nudgeError = "* Nudge interval must be greater than zero."
          }
       }
       else {
-         //TODO: name error message
+         myEditState.nameError = "* Names must be between 1 and 40 characters"
       }
    }
 
