@@ -8,7 +8,7 @@ import java.time.LocalDateTime
 data class Contact(
    @PrimaryKey(autoGenerate = true) val contactId: Long = 0,
    @ColumnInfo val name: String = "Test Contact",
-   @ColumnInfo val picture: Int = R.drawable.smiles000,
+   @ColumnInfo val picture: Int = R.drawable.hearties_q,
    @ColumnInfo val lastMessageDate: LocalDateTime = LocalDateTime.now(),
    @ColumnInfo val isNudger: Boolean = false,
    @ColumnInfo val nudgeDayInterval: Int? = null,

@@ -1,6 +1,7 @@
 package info.noahortega.heartsmonitor
 
 import android.app.Application
+import android.content.res.TypedArray
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -19,15 +20,6 @@ import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import kotlin.random.Random
 
-val defaultProfilePics = listOf(
-   R.drawable.smiles000,
-   R.drawable.smiles001,
-   R.drawable.smiles002,
-   R.drawable.smiles003,
-   R.drawable.smiles004,
-   R.drawable.smiles005,
-)
-
 class HeartsViewModel(application: Application) : AndroidViewModel(application) {
    //General data state functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    private val _contactList = mutableStateListOf<Contact>()
@@ -36,8 +28,12 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
    var suggestedContact by mutableStateOf(null as Contact?)
       private set
 
+   private var contactPictures : TypedArray
+
    private var dao: ContactDao
    init {
+      contactPictures = application.resources.obtainTypedArray(R.array.hearties);
+
       val db = Room.databaseBuilder(
          application,
          AppDatabase::class.java, "database-name"
@@ -123,7 +119,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
       var contact: Contact = Contact()
       var name by mutableStateOf("default")
       var nameError by mutableStateOf(null as String?)
-      var imgId by mutableStateOf(defaultProfilePics.first())
+      var imgId by mutableStateOf(R.drawable.hearties_q)
       var isNudger by mutableStateOf(false)
       var nudgeDayInterval by mutableStateOf(null as String?)
       var nudgeError by mutableStateOf(null as String?)
@@ -133,7 +129,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
             this.contact = contact ?: Contact()
             this.name = contact?.name ?: ""
 
-            this.imgId = contact?.picture ?: defaultProfilePics.random()
+            this.imgId = contact?.picture ?: randomContactPicture()
             this.isNudger = contact?.isNudger ?: false
             this.nudgeDayInterval = contact?.nudgeDayInterval?.toString() ?: ""
             this.clearErrors()
@@ -147,7 +143,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
    }
 
    fun onRandomPicPress() {
-      myEditState.imgId = defaultProfilePics.filter { it != myEditState.imgId}.random()
+      myEditState.imgId = randomContactPicture()
    }
 
    fun tryToChangeInterval(interval: String) {
@@ -208,12 +204,16 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
       }
    }
 
+   private fun randomContactPicture() : Int {
+      return contactPictures.getResourceId((0..120).random(),-1)
+   }
+
    //Test Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    fun dummyContact() : Contact {
       return Contact(
          contactId = -100,
          name = "Noah Ortega",
-         picture = R.drawable.smiles000,
+         picture = R.drawable.hearties_q,
          lastMessageDate = LocalDateTime.of(2022, 8, 15, 0, 0, 0),
          isNudger = true,
          nudgeDayInterval = 30,
@@ -228,7 +228,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
             Contact(
                contactId = -i.toLong(),
                name = "test contact $i",
-               picture = defaultProfilePics.random(),
+               picture = randomContactPicture(),
                lastMessageDate =randomTimeBetween(
                   LocalDateTime.of(2022, 8, 15, 0, 0, 0)
                   ,LocalDateTime.now()),

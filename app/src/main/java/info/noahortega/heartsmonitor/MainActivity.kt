@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -121,7 +122,8 @@ fun EntryPoint() {
                modifier = mod.fillMaxSize(),
                launchLogic = {vm.suggestLaunchLogic()},
                onChat = { vm.contactSuggestionPressed()},
-               onIgnore = {vm.newSuggestionPressed()})}
+               onIgnore = {vm.newSuggestionPressed()},
+               onAddContact = {nav.navigate((Screen.Contact.route))} )}
          }
       })
 }
@@ -351,19 +353,10 @@ fun ContactItem(
    }
 }
 
-//@Preview(showBackground = true)
-@Composable
-fun SuggTest() {
-   val vm : HeartsViewModel = viewModel()
-   val contact = vm.dummyContact()
-   Surface {
-      SuggestionScreen(contact = contact)
-   }
-}
 @Composable
 fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
                      launchLogic: () -> Unit = {},
-                     onChat: () -> Unit = {}, onIgnore: () -> Unit = {}) {
+                     onChat: () -> Unit = {}, onIgnore: () -> Unit = {}, onAddContact: () -> Unit) {
    val configuration = LocalConfiguration.current
    val screenHeight = configuration.screenHeightDp.dp
    val screenWidth = configuration.screenWidthDp.dp
@@ -377,12 +370,25 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
       verticalArrangement = Arrangement.SpaceEvenly,
       horizontalAlignment = Alignment.CenterHorizontally) {
 
-      if(contact != null) {
-         Text(style = MaterialTheme.typography.titleLarge,text = "Why not chat with...")
+      val noContacts = (contact == null)
 
-         ContactImage(modifier = Modifier.width(min(screenHeight, screenWidth) / 2), imgId = contact.picture, name = contact.name)
+      Text(style = MaterialTheme.typography.titleLarge,
+         text = if (noContacts) "Why not create a new contact" else "Why not chat with")
 
-         Text(style = MaterialTheme.typography.titleLarge, text = contact.name)
+      ContactImage(modifier = Modifier.size(min(screenHeight, screenWidth) / 2),
+         imgId = if (noContacts) R.drawable.hearties_q else contact!!.picture,
+         name = if (noContacts) "Missing Contact" else contact!!.name)
+
+      if(noContacts) {
+         OutlinedButton(modifier = Modifier.padding(horizontal = 5.dp),
+            onClick = { onAddContact() }) {
+            Icon(imageVector = Icons.Outlined.Favorite, null)
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+            Text(text = "Add Contact")
+         }
+      }
+      else {
+         Text(style = MaterialTheme.typography.titleLarge, text = contact!!.name)
 
          Row {
             val buttonModifier = Modifier.padding(horizontal = 5.dp)
@@ -400,13 +406,6 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
             }
          }
       }
-      else {
-         Text(style = MaterialTheme.typography.titleLarge,text = "Why not add a new contact")
-
-         ContactImage(modifier = Modifier.width(min(screenHeight, screenWidth) / 2), imgId = R.drawable.smiles000, name = "Default Contact")
-
-         Text(style = MaterialTheme.typography.titleLarge, text = "")
-      }
    }
 }
 
@@ -416,9 +415,11 @@ fun ContactImage(modifier: Modifier,imgId: Int, name: String) {
    Box(modifier = modifier
       .clip(CircleShape)
       .background(iconColor)) {
+      Paint()
       Image(painter = painterResource(id = imgId),
          contentDescription = "Profile picture of $name",
          modifier = Modifier
+            .fillMaxSize()
             .clip(CircleShape)
             .border(BorderStroke(2.dp, iconColor), CircleShape))
    }
