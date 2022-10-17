@@ -85,7 +85,8 @@ fun EntryPoint() {
       content = {
          val mod = Modifier.padding(it)
          NavHost(navController = nav, startDestination = Screen.Contact.route) {
-            composable(Screen.Contact.route) { ContactsScreen (
+            composable(Screen.Contact.route) {
+               ContactsScreen (
                contacts = vm.contactList,
                modifier = mod.fillMaxSize(),
                onFab = {
@@ -99,6 +100,14 @@ fun EntryPoint() {
                   vm.onContactPressed(contact)
                   nav.navigate(Screen.Edit.route)
                })}
+            composable(Screen.Random.route) {
+               SuggestionScreen(
+                  contact = vm.suggestedContact,
+                  modifier = mod.fillMaxSize(),
+                  launchLogic = {vm.suggestLaunchLogic()},
+                  onChat = { vm.contactSuggestionPressed()},
+                  onIgnore = {vm.newSuggestionPressed()},
+                  onAddContact = {nav.navigate((Screen.Contact.route))} )}
             composable(Screen.Edit.route) {
                EditContactScreen(
                   name = vm.myEditState.name, picture = vm.myEditState.imgId,
@@ -124,6 +133,7 @@ fun EntryPoint() {
                NudgeScreen(
                   nudgeContacts = vm.contactList.filter { item -> item.isNudger },
                   contactListItemMessage = vm::nudgeListItemMessage,
+                  modifier = mod.fillMaxSize(),
                   onTrashTapped = vm::onTrashPressed,
                   onHeartTapped = vm::onHeartPressed,
                   onItemTapped = {contact: Contact ->
@@ -131,13 +141,6 @@ fun EntryPoint() {
                      nav.navigate(Screen.Edit.route)},
                   checkIfExpired = vm::nudgeIsOverdue)
             }
-            composable(Screen.Random.route) { SuggestionScreen(
-               contact = vm.suggestedContact,
-               modifier = mod.fillMaxSize(),
-               launchLogic = {vm.suggestLaunchLogic()},
-               onChat = { vm.contactSuggestionPressed()},
-               onIgnore = {vm.newSuggestionPressed()},
-               onAddContact = {nav.navigate((Screen.Contact.route))} )}
          }
       })
 }
@@ -420,12 +423,11 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
       launchLogic()
    }
 
-   Row(modifier = modifier.fillMaxSize(),
+   Row(modifier = modifier,
       verticalAlignment = Alignment.CenterVertically,
-   horizontalArrangement = Arrangement.Center) {
+      horizontalArrangement = Arrangement.Center) {
       Column(
          modifier = Modifier.padding(horizontal = 30.dp),
-//      verticalArrangement = Arrangement.SpaceEvenly,
          horizontalAlignment = Alignment.CenterHorizontally
       ) {
 

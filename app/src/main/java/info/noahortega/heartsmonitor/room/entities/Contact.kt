@@ -23,7 +23,6 @@ interface ContactDao {
    @Insert()
    fun insert(contact: Contact) : Long
 
-
    @Query("DELETE FROM contact WHERE contactId = :contactId")
    fun deleteById(contactId: Long)
 
@@ -31,5 +30,5 @@ interface ContactDao {
    fun delete(contact: Contact)
 
    @Update
-   fun update(contact: Contact)
+   fun update(contact: Contact) : Int
 }

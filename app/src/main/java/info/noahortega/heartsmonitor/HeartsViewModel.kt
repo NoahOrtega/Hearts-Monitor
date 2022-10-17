@@ -16,10 +16,7 @@ import info.noahortega.heartsmonitor.room.entities.ContactDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
-import kotlin.math.absoluteValue
-import kotlin.random.Random
 
 class HeartsViewModel(application: Application) : AndroidViewModel(application) {
    //General data state functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -52,10 +49,10 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
 
    private fun addContact(contact : Contact) {
       viewModelScope.launch(Dispatchers.IO) {
-            dao.insert(contact).also { dbRowId ->
-               _contactList.add(contact.copy(contactId = dbRowId))
-               Log.i("<3 Room", "+ Room: added contact '${contact.name}' with id $dbRowId")
-            }
+         dao.insert(contact).also { dbRowId ->
+            _contactList.add(contact.copy(contactId = dbRowId))
+            Log.i("<3 Room", "+ Room: added contact '${contact.name}' with id $dbRowId")
+         }
       }
    }
 
@@ -83,9 +80,11 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
    private fun updateContact(editedContact: Contact) {
       viewModelScope.launch(Dispatchers.IO) {
          val itemIndex = _contactList.indexOfFirst { it.contactId == editedContact.contactId}
-         dao.update(editedContact)
-         _contactList[itemIndex] = editedContact
-         Log.i("<3 Room", "> Room: edited contact '${editedContact.name}' with id ${editedContact.contactId}")
+         val successful = dao.update(editedContact)
+         if (successful == 1) {
+            _contactList[itemIndex] = editedContact
+            Log.i("<3 Room", "> Room: edited contact '${editedContact.name}' with id ${editedContact.contactId}")
+         }
       }
    }
 
@@ -181,7 +180,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
    }
 
    fun nudgeIsOverdue(nextNudgeDay : LocalDate) : Boolean{
-      return LocalDate.now().isAfter(nextNudgeDay)
+      return LocalDate.now().isBefore(nextNudgeDay).not()
    }
 
    fun nudgeListItemMessage(nextNudgeDay : LocalDate) : String {
