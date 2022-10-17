@@ -1,9 +1,7 @@
 package info.noahortega.heartsmonitor
 
 import android.content.res.Configuration
-import android.content.res.Configuration.UI_MODE_TYPE_VR_HEADSET
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.StringRes
@@ -47,7 +45,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import info.noahortega.heartsmonitor.room.entities.Contact
 import info.noahortega.heartsmonitor.ui.theme.HeartsMonitorTheme
-import java.time.LocalDateTime
+import java.time.LocalDate
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
@@ -82,6 +80,8 @@ fun EntryPoint() {
    val nav = rememberNavController()
    MainScaffold(
       nav = nav,
+      nudgesNum = vm.contactList.count { (it.nextNudgeDate != null) && (vm.nudgeIsOverdue(it.nextNudgeDate)) },
+      hasNudges = vm.contactList.find {it.isNudger} != null,
       content = {
          val mod = Modifier.padding(it)
          NavHost(navController = nav, startDestination = Screen.Contact.route) {
@@ -120,7 +120,17 @@ fun EntryPoint() {
                   onDayIntervalChange = {interval -> vm.tryToChangeInterval(interval)},
                   onNudgeChange = {doNudge -> vm.myEditState.isNudger = doNudge},
                )}
-            composable(Screen.Nudge.route) { }
+            composable(Screen.Nudge.route) {
+               NudgeScreen(
+                  nudgeContacts = vm.contactList.filter { item -> item.isNudger },
+                  contactListItemMessage = vm::nudgeListItemMessage,
+                  onTrashTapped = vm::onTrashPressed,
+                  onHeartTapped = vm::onHeartPressed,
+                  onItemTapped = {contact: Contact ->
+                     vm.onContactPressed(contact)
+                     nav.navigate(Screen.Edit.route)},
+                  checkIfExpired = vm::nudgeIsOverdue)
+            }
             composable(Screen.Random.route) { SuggestionScreen(
                contact = vm.suggestedContact,
                modifier = mod.fillMaxSize(),
@@ -136,28 +146,43 @@ fun EntryPoint() {
 @Composable
 fun MainScaffold(modifier: Modifier = Modifier,
                  nav: NavHostController,
+                 nudgesNum: Int,
+                 hasNudges: Boolean,
                  content: @Composable (PaddingValues) -> Unit) {
    Scaffold(
       modifier = modifier,
-      bottomBar = { BottomBar(nav = nav)},
+      bottomBar = { BottomBar(nav = nav, hasNudges = hasNudges, nudgesNum = nudgesNum)},
    ) {  contentPadding -> content(contentPadding) }
 }
 
-val screenList = listOf(
-   Screen.Contact,
-   Screen.Random,
-)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BottomBar(modifier: Modifier = Modifier, nav : NavHostController) {
+fun BottomBar(modifier: Modifier = Modifier, nav : NavHostController, hasNudges: Boolean, nudgesNum : Int) {
    val navBackStackEntry by nav.currentBackStackEntryAsState()
    val currentDestination = navBackStackEntry?.destination
+
+   val screenList = mutableListOf<Screen>(Screen.Contact).also {
+      if(hasNudges) {
+         it.add(Screen.Nudge)
+      }
+      it.add(Screen.Random)
+   }
 
    NavigationBar(modifier = modifier) {
       screenList.forEach { screen ->
          val onThisScreen = currentDestination?.hierarchy?.any { it.route == screen.route }
          NavigationBarItem(
-            icon = { Icon(screen.icon, null) },
+            icon = {
+               if(screen is Screen.Nudge && nudgesNum > 0) {
+                  BadgedBox(badge = { Badge { Text(nudgesNum.toString()) } }) {
+                     Icon(screen.icon, null)
+                  }
+               }
+               else {
+                  Icon(screen.icon, null)
+               }
+                   },
             label = { Text(stringResource(id = screen.resourceId)) },
             selected = onThisScreen == true,
             onClick = {
@@ -260,7 +285,7 @@ fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval
 @Composable
 fun ContactsScreen(
    contacts: List<Contact>, modifier: Modifier = Modifier,
-   contactListItemMessage: (LocalDateTime) -> String,
+   contactListItemMessage: (LocalDate) -> String,
    onHeartTapped: (contactId: Long) -> Unit,
    onItemTapped: (Contact) -> Unit,
    onTrashTapped: (Contact) -> Unit,
@@ -338,8 +363,10 @@ fun ContactItem(
                .width(48.dp),
                imgId = imgId, name = name)
          },
-         headlineText = { Text(text = name) },
-         supportingText = { Text(dateMessage) },
+         headlineText = { Text(text = name,
+         )},
+         supportingText = { Text(text = dateMessage,
+            color = if (isExpired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground) },
          trailingContent = {
             Icon(
                painter = if(isExpired) painterResource(id = R.drawable.ic_baseline_heart_broken_24)
@@ -365,10 +392,9 @@ fun SuggestionTest() {
       contactId = 0,
       name = "Noah Ortega",
       picture = R.drawable.hearties_64,
-      lastMessageDate = LocalDateTime.now(),
+      lastMessageDate = LocalDate.now(),
       isNudger = false,
       nudgeDayInterval = null,
-      nextNudgeDate = null
    )
    SuggestionScreen(contact = contact)
 }
@@ -484,3 +510,27 @@ fun ContactImage(modifier: Modifier,imgId: Int, name: String) {
    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NudgeScreen(nudgeContacts : List<Contact>, modifier : Modifier = Modifier,
+                contactListItemMessage: (nextNudgeDay : LocalDate) -> String,
+                checkIfExpired: (LocalDate) -> Boolean,
+                onItemTapped: (Contact) -> Unit,
+                onTrashTapped: (Contact) -> Unit, onHeartTapped: (contactId: Long) -> Unit) {
+   Box(modifier = modifier) {
+      LazyColumn(contentPadding = PaddingValues(bottom = 20.dp)) {
+         items(items = nudgeContacts, key = {it.contactId})
+         { contact ->
+            ContactItem(
+               isExpired = checkIfExpired(contact.nextNudgeDate!!),
+               imgId = contact.picture,
+               name = contact.name,
+               dateMessage = contactListItemMessage(contact.nextNudgeDate),
+               onItemTapped = { onItemTapped(contact) },
+               onTrashTapped = {onTrashTapped(contact)},
+               onIconTap = {onHeartTapped(contact.contactId)}
+            )
+         }
+      }
+   }
+}

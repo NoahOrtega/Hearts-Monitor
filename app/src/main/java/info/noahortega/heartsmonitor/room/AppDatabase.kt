@@ -6,24 +6,24 @@ import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import info.noahortega.heartsmonitor.room.entities.Contact
 import info.noahortega.heartsmonitor.room.entities.ContactDao
-import java.time.LocalDateTime
+import java.time.LocalDate
 
 @Database(entities = [Contact::class], version = 1)
-@TypeConverters(LocalDateTimeConverter::class)
+@TypeConverters(LocalDateConverter::class)
 abstract class AppDatabase : RoomDatabase() {
    abstract fun contactDao(): ContactDao
 }
 
-class LocalDateTimeConverter {
+class LocalDateConverter {
    @TypeConverter
-   fun toDate(dateString: String?): LocalDateTime? {
+   fun toDate(dateString: String?): LocalDate? {
       return dateString?.let {
-         LocalDateTime.parse(it)
+         LocalDate.parse(it)
       }
    }
 
    @TypeConverter
-   fun toDateString(date: LocalDateTime?): String? {
+   fun toDateString(date: LocalDate?): String? {
       return date?.toString()
    }
 }

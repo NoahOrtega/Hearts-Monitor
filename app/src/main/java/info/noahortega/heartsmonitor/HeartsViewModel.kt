@@ -15,15 +15,17 @@ import info.noahortega.heartsmonitor.room.entities.Contact
 import info.noahortega.heartsmonitor.room.entities.ContactDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
+import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
+import kotlin.math.absoluteValue
 import kotlin.random.Random
 
 class HeartsViewModel(application: Application) : AndroidViewModel(application) {
    //General data state functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    private val _contactList = mutableStateListOf<Contact>()
    val contactList: List<Contact> = _contactList
+   var nudgesExist = _contactList.find { it.isNudger } != null
 
    var suggestedContact by mutableStateOf(null as Contact?)
       private set
@@ -67,10 +69,13 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
 
    private fun markAsContacted(contactId: Long) {
       viewModelScope.launch(Dispatchers.IO) {
-         val itemIndex = _contactList.indexOfFirst { it.contactId == contactId}
-         val updatedContact = _contactList[itemIndex].copy(lastMessageDate = LocalDateTime.now())
+         val contactIndex = _contactList.indexOfFirst { it.contactId == contactId}
+         val contact = _contactList[contactIndex]
+         val newNextNudgeDate = calcNudgeDate(lastMessageDate = LocalDate.now(), nudgeInterval = contact.nudgeDayInterval)
+         val updatedContact = contact.copy(lastMessageDate = LocalDate.now(), nextNudgeDate = newNextNudgeDate)
+
          dao.update(updatedContact)
-         _contactList[itemIndex] = updatedContact
+         _contactList[contactIndex] = updatedContact
          Log.i("<3 Room", "> Room: marked '${updatedContact.name}' as contacted with id ${updatedContact.contactId}")
       }
    }
@@ -82,6 +87,65 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
          _contactList[itemIndex] = editedContact
          Log.i("<3 Room", "> Room: edited contact '${editedContact.name}' with id ${editedContact.contactId}")
       }
+   }
+
+   //Edit Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   val myEditState = EditUIState().apply { this.setState(null)}
+   class EditUIState {
+      var contact: Contact = Contact()
+      var name by mutableStateOf("default")
+      var nameError by mutableStateOf(null as String?)
+      var imgId by mutableStateOf(R.drawable.hearties_q)
+      var isNudger by mutableStateOf(false)
+      var lastMessagedDate by mutableStateOf(LocalDate.now())
+      var nudgeDayInterval by mutableStateOf(null as String?)
+      var nudgeError by mutableStateOf(null as String?)
+   }
+   private fun EditUIState.setState(contact: Contact?) {
+      this.apply {
+         this.contact = contact ?: Contact()
+         this.name = contact?.name ?: ""
+         this.imgId = contact?.picture ?: randomContactPicture()
+         this.isNudger = contact?.isNudger ?: false
+         this.nudgeDayInterval = contact?.nudgeDayInterval?.toString() ?: ""
+         this.lastMessagedDate = contact?.lastMessageDate ?: LocalDate.now()
+         this.clearErrors()
+      }
+   }
+   private fun EditUIState.clearErrors() {
+      this.apply {
+         this.nameError = null
+         this.nudgeError = null
+      }
+   }
+
+   fun onRandomPicPress() {
+      myEditState.imgId = randomContactPicture()
+   }
+
+   fun tryToChangeInterval(interval: String) {
+      if(interval.toIntOrNull()?.takeIf { it > 0 } != null || interval == "") myEditState.nudgeDayInterval = interval
+   }
+
+   fun onSavePressed() {
+      myEditState.clearErrors()
+      if(myEditState.name != "" && myEditState.name.length < 40) {
+         if (!myEditState.isNudger || myEditState.nudgeDayInterval?.toIntOrNull() != null) {
+            val nudgeDayInterval: Int? = myEditState.nudgeDayInterval?.toIntOrNull()
+            val newContact = myEditState.contact.copy(
+               name = myEditState.name.trim().replace("\n", "").replace("\r", ""),
+               picture = myEditState.imgId,
+               lastMessageDate = myEditState.lastMessagedDate,
+               isNudger = myEditState.isNudger,
+               nudgeDayInterval = nudgeDayInterval,
+               nextNudgeDate = calcNudgeDate(myEditState.lastMessagedDate,nudgeDayInterval)
+            )
+            if (newContact.contactId == 0L) { addContact(newContact) }
+            else { updateContact(newContact) }
+         }
+         else { myEditState.nudgeError = "* Nudge interval must be greater than zero." }
+      }
+      else { myEditState.nameError = "* Names must be between 1 and 40 characters" }
    }
 
    //Contacts Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -100,83 +164,35 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
    }
 
    //Contacts Screen Helpers ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   fun contactListItemMessage(lastContacted: LocalDateTime) : String {
-      val curTime = LocalDateTime.now()
-      lastContacted.until(curTime, ChronoUnit.HOURS).run {
-         if (this < 24) return "Contacted Today!"
-      }
+   fun contactListItemMessage(lastContacted: LocalDate) : String {
+      val curTime = LocalDate.now()
       lastContacted.until(curTime, ChronoUnit.DAYS).run {
+         if (this == 0L) return "Contacted Today!"
          if (this < 365) return "It's been $this days..."
       }
-      lastContacted.until(curTime, ChronoUnit.DAYS).run {
+      lastContacted.until(curTime, ChronoUnit.MONTHS).run {
          return "It's been $this months..."
       }
    }
 
-   //Edit Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   val myEditState = EditUIState().apply { this.setState(null)}
-   class EditUIState {
-      var contact: Contact = Contact()
-      var name by mutableStateOf("default")
-      var nameError by mutableStateOf(null as String?)
-      var imgId by mutableStateOf(R.drawable.hearties_q)
-      var isNudger by mutableStateOf(false)
-      var nudgeDayInterval by mutableStateOf(null as String?)
-      var nudgeError by mutableStateOf(null as String?)
+   // Nudge Screen Helpers
+   private fun daysUntilNudge(nextNudgeDay : LocalDate) : Long {
+      return ChronoUnit.DAYS.between(LocalDate.now(), nextNudgeDay)
    }
-   private fun EditUIState.setState(contact: Contact?) {
-         this.apply {
-            this.contact = contact ?: Contact()
-            this.name = contact?.name ?: ""
 
-            this.imgId = contact?.picture ?: randomContactPicture()
-            this.isNudger = contact?.isNudger ?: false
-            this.nudgeDayInterval = contact?.nudgeDayInterval?.toString() ?: ""
-            this.clearErrors()
-         }
+   fun nudgeIsOverdue(nextNudgeDay : LocalDate) : Boolean{
+      return LocalDate.now().isAfter(nextNudgeDay)
    }
-   private fun EditUIState.clearErrors() {
-      this.apply {
-         this.nameError = null
-         this.nudgeError = null
+
+   fun nudgeListItemMessage(nextNudgeDay : LocalDate) : String {
+      val daysBetween = daysUntilNudge(nextNudgeDay)
+      daysBetween.let {
+         return if(it < 0L)  "${if(it == -1L) "1 day" else "${-(it)} days"} late..."
+         else if(nextNudgeDay.isEqual(LocalDate.now())) "Nudge! Message them today"
+         else "${if(it == 1L) "1 day" else "$it days"} until next nudge"
       }
    }
 
-   fun onRandomPicPress() {
-      myEditState.imgId = randomContactPicture()
-   }
-
-   fun tryToChangeInterval(interval: String) {
-      if(interval.toIntOrNull() != null || interval == "") myEditState.nudgeDayInterval = interval
-   }
-   fun onSavePressed() {
-      myEditState.clearErrors()
-      if(myEditState.name != "" && myEditState.name.length < 40) {
-         if (!myEditState.isNudger || myEditState.nudgeDayInterval?.toIntOrNull() != null) {
-            val nudgeDayInterval: Int? = myEditState.nudgeDayInterval?.toIntOrNull()
-            val newContact = myEditState.contact.copy(
-               name = myEditState.name.trim().replace("\n", "").replace("\r", ""),
-               picture = myEditState.imgId,
-               lastMessageDate = LocalDateTime.now(),
-               isNudger = myEditState.isNudger,
-               nudgeDayInterval = nudgeDayInterval,
-               nextNudgeDate = nudgeDayInterval?.let {LocalDateTime.now().plusDays(it.toLong())}
-            )
-            if (newContact.contactId == 0L) {
-               addContact(newContact)
-            }
-            else {
-               updateContact(newContact)
-            }
-         }
-         else {
-            myEditState.nudgeError = "* Nudge interval must be greater than zero."
-         }
-      }
-      else {
-         myEditState.nameError = "* Names must be between 1 and 40 characters"
-      }
-   }
 
    //Suggest Screen Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    fun suggestLaunchLogic() {
@@ -208,47 +224,11 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
       return contactPictures.getResourceId((0..120).random(),-1)
    }
 
-   //Test Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   fun dummyContact() : Contact {
-      return Contact(
-         contactId = -100,
-         name = "Noah Ortega",
-         picture = R.drawable.hearties_q,
-         lastMessageDate = LocalDateTime.of(2022, 8, 15, 0, 0, 0),
-         isNudger = true,
-         nudgeDayInterval = 30,
-         nextNudgeDate = LocalDateTime.of(2023, 1, 1, 0, 0, 0)
-      )
+   private fun calcNudgeDate(lastMessageDate: LocalDate, nudgeInterval: Int?) : LocalDate? {
+      return if(nudgeInterval == null) null
+      else lastMessageDate.plusDays(nudgeInterval.toLong())
    }
 
-   fun dummyContacts(numContacts: Int) : List<Contact> {
-      val contacts = mutableListOf<Contact>()
-      for(i in 1..numContacts) {
-         contacts.add(
-            Contact(
-               contactId = -i.toLong(),
-               name = "test contact $i",
-               picture = randomContactPicture(),
-               lastMessageDate =randomTimeBetween(
-                  LocalDateTime.of(2022, 8, 15, 0, 0, 0)
-                  ,LocalDateTime.now()),
-               isNudger = false,
-               nudgeDayInterval = 0,
-               nextNudgeDate =randomTimeBetween(
-                  LocalDateTime.now(),
-                  LocalDateTime.of(2023, 1, 1, 0, 0, 0))
-            )
-         )
-      }
-      return contacts
-   }
-
-   private fun randomTimeBetween(startInclusive: LocalDateTime, endExclusive: LocalDateTime): LocalDateTime {
-      val startSeconds: Long = startInclusive.toEpochSecond(ZoneOffset.UTC)
-      val endSeconds: Long = endExclusive.toEpochSecond(ZoneOffset.UTC)
-      val random: Long = Random.nextLong(startSeconds, endSeconds)
-      return LocalDateTime.ofEpochSecond(random, 0, ZoneOffset.UTC)
-   }
 }
 
 

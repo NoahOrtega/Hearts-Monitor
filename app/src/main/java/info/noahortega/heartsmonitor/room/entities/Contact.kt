@@ -2,17 +2,17 @@ package info.noahortega.heartsmonitor.room.entities
 
 import androidx.room.*
 import info.noahortega.heartsmonitor.R
-import java.time.LocalDateTime
+import java.time.LocalDate
 
 @Entity
 data class Contact(
    @PrimaryKey(autoGenerate = true) val contactId: Long = 0,
    @ColumnInfo val name: String = "Test Contact",
    @ColumnInfo val picture: Int = R.drawable.hearties_q,
-   @ColumnInfo val lastMessageDate: LocalDateTime = LocalDateTime.now(),
+   @ColumnInfo val lastMessageDate: LocalDate = LocalDate.now(),
    @ColumnInfo val isNudger: Boolean = false,
    @ColumnInfo val nudgeDayInterval: Int? = null,
-   @ColumnInfo val nextNudgeDate: LocalDateTime? = null,
+   @ColumnInfo val nextNudgeDate: LocalDate? = null,
 )
 
 @Dao
