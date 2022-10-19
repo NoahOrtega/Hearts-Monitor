@@ -1,7 +1,9 @@
 package info.noahortega.heartsmonitor
 
+import android.app.DatePickerDialog
 import android.content.res.Configuration
 import android.os.Bundle
+import android.widget.DatePicker
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.StringRes
@@ -15,7 +17,6 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.FractionalThreshold
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.rememberSwipeableState
 import androidx.compose.material.swipeable
 import androidx.compose.material3.*
@@ -26,12 +27,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Devices
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -112,6 +112,7 @@ fun EntryPoint() {
                EditContactScreen(
                   name = vm.myEditState.name, picture = vm.myEditState.imgId,
                   isNudger = vm.myEditState.isNudger, dayInterval = vm.myEditState.nudgeDayInterval,
+                  lastContacted = vm.myEditState.lastMessagedDate,
                   onRandomPressed = {vm.onRandomPicPress()},
                   modifier = mod.fillMaxSize(),
                   nameErrorMessage = vm.myEditState.nameError,
@@ -125,6 +126,7 @@ fun EntryPoint() {
                   onCancelPressed = {
                      nav.popBackStack()
                   },
+                  onLastContactedChanged = {date -> vm.myEditState.lastMessagedDate = date},
                   onNameChange = {name -> vm.myEditState.name = name},
                   onDayIntervalChange = {interval -> vm.tryToChangeInterval(interval)},
                   onNudgeChange = {doNudge -> vm.myEditState.isNudger = doNudge},
@@ -207,18 +209,23 @@ fun BottomBar(modifier: Modifier = Modifier, nav : NavHostController, hasNudges:
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval: String?,
-                      nameErrorMessage: String?, nudgeErrorMessage: String?,
-                      onNameChange: (String) -> Unit, onDayIntervalChange: (String) -> Unit, onNudgeChange: (Boolean)-> Unit,
-                      modifier: Modifier = Modifier,
-                      onRandomPressed: () -> Unit, onSavePressed: () -> Unit, onCancelPressed: () -> Unit,) {
-   Column(modifier = modifier
-      .padding(40.dp)
-      .verticalScroll(rememberScrollState()),
+fun EditContactScreen(
+   name: String, picture: Int, isNudger: Boolean, dayInterval: String?, lastContacted: LocalDate,
+   nameErrorMessage: String?, nudgeErrorMessage: String?,
+   onNameChange: (String) -> Unit, onDayIntervalChange: (String) -> Unit,
+   onNudgeChange: (Boolean) -> Unit, onLastContactedChanged: (LocalDate) -> Unit,
+   modifier: Modifier = Modifier,
+   onRandomPressed: () -> Unit, onSavePressed: () -> Unit, onCancelPressed: () -> Unit,
+) {
+   Column(
+      modifier = modifier
+         .padding(40.dp)
+         .verticalScroll(rememberScrollState()),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center,
    ) {
       Column(Modifier.width(intrinsicSize = IntrinsicSize.Max)) {
+         //pfp settings
          Row(verticalAlignment = Alignment.CenterVertically) {
             ContactImage(modifier = Modifier.width(96.dp), imgId = picture, name = "Edit Screen")
             Spacer(modifier = Modifier.size(16.dp))
@@ -226,47 +233,91 @@ fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval
                Text(text = "Shuffle Profile Pic")
             }
          }
-         Spacer(modifier = Modifier.size(16.dp))
 
-         OutlinedTextField( //TODO:text size limit
+         //general settings
+         Spacer(modifier = Modifier.size(16.dp))
+         OutlinedTextField(
             value = name,
+            leadingIcon = { Icon(Icons.Filled.Person, null)},
             onValueChange = { onNameChange(it) },
             label = { Text("Contact Name") },
             singleLine = true,
             isError = (nameErrorMessage != null),
          )
 
-         nameErrorMessage?.let { Text(text = it,
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.labelSmall) }
+         nameErrorMessage?.let {
+            Text(
+               text = it,
+               color = MaterialTheme.colorScheme.error,
+               style = MaterialTheme.typography.labelSmall
+            )
+         }
 
+         //last messaged date picker
+         val myYear: Int = lastContacted.year
+         val myMonth: Int = lastContacted.monthValue - 1
+         val myDay: Int = lastContacted.dayOfMonth
+
+
+         val datePickerDialog = DatePickerDialog(
+            LocalContext.current,
+            { _: DatePicker, year: Int, month: Int, day: Int ->
+               onLastContactedChanged(LocalDate.of(year, month + 1, day))
+            }, myYear, myMonth, myDay
+         ).also {
+            it.datePicker.maxDate = System.currentTimeMillis()
+         }
+
+         OutlinedTextField(
+            value = lastContacted.toString().replace('-','/'),
+            enabled = false,
+            leadingIcon = {Icon(Icons.Filled.DateRange,null)},
+            onValueChange = {},
+            label = { Text("Last Messaged On") },
+            modifier = Modifier.clickable { datePickerDialog.show() },
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+               disabledTextColor = MaterialTheme.colorScheme.onSurface,
+               disabledBorderColor = MaterialTheme.colorScheme.outline,
+               disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+               disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant)
+         )
+
+         //nudge settings
          Divider(thickness = 1.dp, modifier = Modifier.padding(vertical = 20.dp))
          Text(text = "Nudge Settings:")
          Row(verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = isNudger, onCheckedChange = {onNudgeChange(it)}) //Todo: make work
+            Checkbox(checked = isNudger, onCheckedChange = { onNudgeChange(it) })
             Text(text = "Nudge me to message them")
          }
 
          OutlinedTextField(
             isError = (nudgeErrorMessage != null),
             value = dayInterval ?: "",
+            leadingIcon = {Icon(Icons.Filled.Refresh, "How often should you be reminded")},
             onValueChange = { onDayIntervalChange(it) },
-            label = {Text("How Often (In Days)") },
+            label = { Text("How Often (In Days)") },
             enabled = isNudger
          )
 
-         nudgeErrorMessage?.let { Text(text = it,
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.labelSmall) }
+         nudgeErrorMessage?.let {
+            Text(
+               text = it,
+               color = MaterialTheme.colorScheme.error,
+               style = MaterialTheme.typography.labelSmall
+            )
+         }
 
-         Row(horizontalArrangement = Arrangement.SpaceEvenly,
-         modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 24.dp)) {
+         //save and cancel buttons
+         Row(
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier
+               .fillMaxWidth()
+               .padding(vertical = 24.dp)
+         ) {
             val buttonModifier = Modifier.width(102.dp)
             Button(modifier = buttonModifier,
                onClick = { onSavePressed() }) {
-               Text(text = "Save" )
+               Text(text = "Save")
             }
             OutlinedButton(modifier = buttonModifier,
                onClick = { onCancelPressed() }) {
@@ -277,6 +328,11 @@ fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval
    }
 }
 
+@Composable
+fun DatePickerButton() {
+
+}
+
 ////@Preview
 //@Composable
 //fun TestContactsScreen() {
@@ -284,7 +340,7 @@ fun EditContactScreen(name: String, picture: Int, isNudger: Boolean, dayInterval
 //   ContactsScreen(contacts = vm.dummyContacts(4))
 //}
 
-@OptIn(ExperimentalMaterial3Api::class,)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactsScreen(
    contacts: List<Contact>, modifier: Modifier = Modifier,
@@ -366,7 +422,8 @@ fun ContactItem(
                .width(48.dp),
                imgId = imgId, name = name)
          },
-         headlineText = { Text(text = name,
+         headlineText = { Text(
+            text = name,
          )},
          supportingText = { Text(text = dateMessage,
             color = if (isExpired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground) },
@@ -387,8 +444,8 @@ fun ContactItem(
    }
 }
 
-@Preview(showBackground = true, device = Devices.AUTOMOTIVE_1024p, widthDp = 1024)
-@Preview(showSystemUi = true, device = Devices.PIXEL_2)
+//@Preview(showBackground = true, device = Devices.AUTOMOTIVE_1024p, widthDp = 1024)
+//@Preview(showSystemUi = true, device = Devices.PIXEL_2)
 @Composable
 fun SuggestionTest() {
    val contact = Contact(
@@ -401,14 +458,6 @@ fun SuggestionTest() {
    )
    SuggestionScreen(contact = contact)
 }
-
-@Preview(showSystemUi = true, device = Devices.PIXEL_2)
-@Composable
-fun SuggestionTestB() {
-   SuggestionScreen(contact = null)
-}
-
-
 
 @Composable
 fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
@@ -453,7 +502,7 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
 
             OutlinedButton(modifier = Modifier.padding(horizontal = 5.dp),
                onClick = { onAddContact() }) {
-               Icon(imageVector = Icons.Outlined.Favorite, null)
+               Icon(imageVector = Icons.Filled.Favorite, null)
                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                Text(text = "Add Contact")
             }
@@ -483,7 +532,7 @@ fun SuggestionScreen(contact: Contact?, modifier: Modifier = Modifier,
 fun SuggestionButtons(modifier: Modifier, onChat: () -> Unit, onIgnore: () -> Unit) {
    Button(modifier = modifier,
       onClick = { onChat() }) {
-      Icon(imageVector = Icons.Outlined.Favorite, null)
+      Icon(imageVector = Icons.Filled.Favorite, null)
       Spacer(Modifier.size(ButtonDefaults.IconSpacing))
       Text(text = "Will Do")
    }
