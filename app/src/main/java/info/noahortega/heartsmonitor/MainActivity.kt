@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.FractionalThreshold
 import androidx.compose.material.icons.Icons
@@ -22,6 +24,7 @@ import androidx.compose.material.swipeable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Paint
@@ -29,8 +32,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -207,7 +212,7 @@ fun BottomBar(modifier: Modifier = Modifier, nav : NavHostController, hasNudges:
    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun EditContactScreen(
    name: String, picture: Int, isNudger: Boolean, dayInterval: String?, lastContacted: LocalDate,
@@ -217,6 +222,8 @@ fun EditContactScreen(
    modifier: Modifier = Modifier,
    onRandomPressed: () -> Unit, onSavePressed: () -> Unit, onCancelPressed: () -> Unit,
 ) {
+   val keyboardController = LocalSoftwareKeyboardController.current
+
    Column(
       modifier = modifier
          .padding(40.dp)
@@ -243,21 +250,18 @@ fun EditContactScreen(
             label = { Text("Contact Name") },
             singleLine = true,
             isError = (nameErrorMessage != null),
+            keyboardActions = KeyboardActions(onDone = {keyboardController?.hide()})
          )
-
-         nameErrorMessage?.let {
             Text(
-               text = it,
+               text = nameErrorMessage ?: "",
                color = MaterialTheme.colorScheme.error,
                style = MaterialTheme.typography.labelSmall
             )
-         }
 
          //last messaged date picker
          val myYear: Int = lastContacted.year
          val myMonth: Int = lastContacted.monthValue - 1
          val myDay: Int = lastContacted.dayOfMonth
-
 
          val datePickerDialog = DatePickerDialog(
             LocalContext.current,
@@ -296,16 +300,18 @@ fun EditContactScreen(
             leadingIcon = {Icon(Icons.Filled.Refresh, "How often should you be reminded")},
             onValueChange = { onDayIntervalChange(it) },
             label = { Text("How Often (In Days)") },
-            enabled = isNudger
+            enabled = isNudger,
+            singleLine = true,
+            keyboardActions = KeyboardActions(onDone = {keyboardController?.hide()}),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
          )
 
-         nudgeErrorMessage?.let {
+
             Text(
-               text = it,
+               text = nudgeErrorMessage ?: "",
                color = MaterialTheme.colorScheme.error,
                style = MaterialTheme.typography.labelSmall
             )
-         }
 
          //save and cancel buttons
          Row(
