@@ -334,10 +334,6 @@ fun EditContactScreen(
    }
 }
 
-@Composable
-fun DatePickerButton() {
-
-}
 
 ////@Preview
 //@Composable

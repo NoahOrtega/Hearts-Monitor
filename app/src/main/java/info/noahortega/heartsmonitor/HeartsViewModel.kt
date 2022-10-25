@@ -22,7 +22,6 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
    //General data state functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    private val _contactList = mutableStateListOf<Contact>()
    val contactList: List<Contact> = _contactList
-   var nudgesExist = _contactList.find { it.isNudger } != null
 
    var suggestedContact by mutableStateOf(null as Contact?)
       private set
@@ -31,7 +30,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
 
    private var dao: ContactDao
    init {
-      contactPictures = application.resources.obtainTypedArray(R.array.hearties);
+      contactPictures = application.resources.obtainTypedArray(R.array.hearties)
 
       val db = Room.databaseBuilder(
          application,
@@ -167,7 +166,7 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
       val curTime = LocalDate.now()
       lastContacted.until(curTime, ChronoUnit.DAYS).run {
          if (this == 0L) return "Contacted Today!"
-         if (this < 365) return "It's been $this days..."
+         if (this < 365) return "It's been $this days."
       }
       lastContacted.until(curTime, ChronoUnit.MONTHS).run {
          return "It's been $this months..."
@@ -187,8 +186,8 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
       val daysBetween = daysUntilNudge(nextNudgeDay)
       daysBetween.let {
          return if(it < 0L)  "${if(it == -1L) "1 day" else "${-(it)} days"} late..."
-         else if(nextNudgeDay.isEqual(LocalDate.now())) "Nudge! Message them today"
-         else "${if(it == 1L) "1 day" else "$it days"} until next nudge"
+         else if(nextNudgeDay.isEqual(LocalDate.now())) "Nudge! Message them today."
+         else "${if(it == 1L) "1 day" else "$it days"} until next nudge."
       }
    }
 
