@@ -226,12 +226,13 @@ fun EditContactScreen(
 
    Column(
       modifier = modifier
-         .padding(40.dp)
          .verticalScroll(rememberScrollState()),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center,
    ) {
-      Column(Modifier.width(intrinsicSize = IntrinsicSize.Max)) {
+      Column(Modifier.width(intrinsicSize = IntrinsicSize.Max)
+         .padding(top = 20.dp)
+         .padding(horizontal = 40.dp)) {
          //pfp settings
          Row(verticalAlignment = Alignment.CenterVertically) {
             ContactImage(modifier = Modifier.width(96.dp), imgId = picture, name = "Edit Screen")
