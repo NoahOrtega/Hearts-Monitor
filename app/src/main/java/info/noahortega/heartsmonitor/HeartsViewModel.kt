@@ -148,10 +148,10 @@ class HeartsViewModel(application: Application) : AndroidViewModel(application) 
 
    //Contacts Screen State ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   fun onFabPressed() {
+   fun onNewContact() {
       myEditState.setState(null)
    }
-   fun onContactPressed(contact: Contact) {
+   fun onContactEdit(contact: Contact) {
       myEditState.setState(contact)
    }
    fun onHeartPressed(contactId: Long) {

@@ -37,6 +37,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -82,6 +83,8 @@ fun EntryPoint() {
       vm.composeLateInit()
    }
 
+
+
    val nav = rememberNavController()
    MainScaffold(
       nav = nav,
@@ -94,16 +97,16 @@ fun EntryPoint() {
                ContactsScreen (
                contacts = vm.contactList,
                modifier = mod.fillMaxSize(),
-               onFab = {
-                  vm.onFabPressed()
-                  nav.navigate(Screen.Edit.route)
-               },
+               onNew = {
+                  vm.onNewContact()
+                  nav.navigate(Screen.Edit.route) { launchSingleTop = true }
+                  },
                contactListItemMessage = vm::contactListItemMessage,
                onHeartTapped = vm::onHeartPressed,
                onTrashTapped = vm::onTrashPressed,
                onItemTapped = { contact: Contact ->
-                  vm.onContactPressed(contact)
-                  nav.navigate(Screen.Edit.route)
+                  vm.onContactEdit(contact)
+                  nav.navigate(Screen.Edit.route) { launchSingleTop = true }
                })}
             composable(Screen.Random.route) {
                SuggestionScreen(
@@ -112,7 +115,8 @@ fun EntryPoint() {
                   launchLogic = {vm.suggestLaunchLogic()},
                   onChat = { vm.contactSuggestionPressed()},
                   onIgnore = {vm.newSuggestionPressed()},
-                  onAddContact = {nav.navigate((Screen.Contact.route))} )}
+                  onAddContact = {nav.navigate((Screen.Contact.route))} )
+            }
             composable(Screen.Edit.route) {
                EditContactScreen(
                   name = vm.myEditState.name, picture = vm.myEditState.imgId,
@@ -135,7 +139,8 @@ fun EntryPoint() {
                   onNameChange = {name -> vm.myEditState.name = name},
                   onDayIntervalChange = {interval -> vm.tryToChangeInterval(interval)},
                   onNudgeChange = {doNudge -> vm.myEditState.isNudger = doNudge},
-               )}
+               )
+            }
             composable(Screen.Nudge.route) {
                NudgeScreen(
                   nudgeContacts = vm.contactList.filter { item -> item.isNudger },
@@ -144,8 +149,8 @@ fun EntryPoint() {
                   onTrashTapped = vm::onTrashPressed,
                   onHeartTapped = vm::onHeartPressed,
                   onItemTapped = {contact: Contact ->
-                     vm.onContactPressed(contact)
-                     nav.navigate(Screen.Edit.route)},
+                     vm.onContactEdit(contact)
+                     nav.navigate(Screen.Edit.route) { launchSingleTop = true }},
                   checkIfExpired = vm::nudgeIsOverdue)
             }
          }
@@ -154,17 +159,21 @@ fun EntryPoint() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScaffold(modifier: Modifier = Modifier,
-                 nav: NavHostController,
-                 nudgesNum: Int,
-                 hasNudges: Boolean,
-                 content: @Composable (PaddingValues) -> Unit) {
+fun MainScaffold(
+   modifier: Modifier = Modifier,
+   nav: NavHostController,
+   nudgesNum: Int,
+   hasNudges: Boolean,
+   content: @Composable (PaddingValues) -> Unit,
+) {
+   val navBackStackEntry by nav.currentBackStackEntryAsState()
+   val hideBottomBar = true == navBackStackEntry?.destination?.route?.contains(Screen.Edit.route)
+
    Scaffold(
       modifier = modifier,
-      bottomBar = { BottomBar(nav = nav, hasNudges = hasNudges, nudgesNum = nudgesNum)},
+      bottomBar = { if(!hideBottomBar) {BottomBar(nav = nav, hasNudges = hasNudges, nudgesNum = nudgesNum)}},
    ) {  contentPadding -> content(contentPadding) }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -230,9 +239,11 @@ fun EditContactScreen(
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.Center,
    ) {
-      Column(Modifier.width(intrinsicSize = IntrinsicSize.Max)
-         .padding(top = 20.dp)
-         .padding(horizontal = 40.dp)) {
+      Column(
+         Modifier
+            .width(intrinsicSize = IntrinsicSize.Max)
+            .padding(top = 20.dp)
+            .padding(horizontal = 40.dp)) {
          //pfp settings
          Row(verticalAlignment = Alignment.CenterVertically) {
             ContactImage(modifier = Modifier.width(96.dp), imgId = picture, name = "Edit Screen")
@@ -351,8 +362,9 @@ fun ContactsScreen(
    onHeartTapped: (contactId: Long) -> Unit,
    onItemTapped: (Contact) -> Unit,
    onTrashTapped: (Contact) -> Unit,
-   onFab: () -> Unit = {},
+   onNew: () -> Unit = {},
 ) {
+   var selected by remember { mutableStateOf(false) }
    Box(modifier = modifier) {
       LazyColumn(contentPadding = PaddingValues(bottom = 20.dp)) {
          items(items = contacts, key = {it.contactId})
@@ -369,9 +381,16 @@ fun ContactsScreen(
          modifier = Modifier
             .padding(40.dp)
             .align(Alignment.BottomEnd),
-         onClick = { onFab() },
+         onClick = { selected = true},
       ) {
          Icon(Icons.Filled.Add, "Add a new contact")
+         DropdownMenu(expanded = selected,
+            onDismissRequest = { selected = false },
+            offset = DpOffset(0.dp, 5.dp)
+         ) {
+            DropdownMenuItem(text = { Text(text = "New")}, onClick = { onNew() })
+            DropdownMenuItem(text = { Text(text = "From Contacts")}, onClick = { /*TODO*/ })
+         }
       }
    }
 }

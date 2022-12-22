@@ -39,24 +39,27 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun HeartsMonitorTheme(
-   darkTheme: Boolean = isSystemInDarkTheme(),
-   // Dynamic color is available on Android 12+
+   isDarkTheme: Boolean = isSystemInDarkTheme(),
    dynamicColor: Boolean = true,
    content: @Composable () -> Unit
 ) {
-   val colorScheme = when {
-      dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-         val context = LocalContext.current
-         if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+   val colorScheme =
+      when {
+         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> // Dynamic color is available on Android 12+
+         {
+            val context = LocalContext.current
+            if (isDarkTheme) dynamicDarkColorScheme(context)
+            else dynamicLightColorScheme(context)
+         }
+         isDarkTheme -> DarkColorScheme
+         else -> LightColorScheme
       }
-      darkTheme -> DarkColorScheme
-      else -> LightColorScheme
-   }
+
    val view = LocalView.current
    if (!view.isInEditMode) {
       SideEffect {
          (view.context as Activity).window.statusBarColor = colorScheme.primary.toArgb()
-         ViewCompat.getWindowInsetsController(view)?.isAppearanceLightStatusBars = darkTheme
+         ViewCompat.getWindowInsetsController(view)?.isAppearanceLightStatusBars = isDarkTheme
       }
    }
 
