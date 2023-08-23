@@ -14,7 +14,7 @@ This app was also made to help face a problem many android developers such as my
 >I hope my app can help you to break this cycle of shame and isolation with gentle reminders to maintain your cherished relationships.
 
 ## Check it out here:
-[![Link to google play page](https://i.imgur.com/ile0wqH.png)](https://play.google.com/store/apps/details?id=info.noahortega.bluecointracker)
+[![Link to google play page](https://i.imgur.com/ile0wqH.png)](https://play.google.com/store/apps/details?id=info.noahortega.heartsmonitor)
 
 ## Screenshots: (see more screenshots in the app store)
 <img width="300" alt="Nudge Screen warning users of past due conversations" src="https://play-lh.googleusercontent.com/KP_eNYgxgBabUinA5oi3OGfvKAOrTQ5Ay3_0yRX5ZPqGfFkKMfPC3QfwnelTjVlhlA=w2560-h1440-rw">
